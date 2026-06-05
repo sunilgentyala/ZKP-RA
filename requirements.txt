@@ -1,0 +1,6 @@
+aiohttp>=3.9.0
+eth-abi>=5.0.0
+poseidon-hash>=0.1.0
+pydantic>=2.6.0
+structlog>=24.1.0
+web3>=7.0.0

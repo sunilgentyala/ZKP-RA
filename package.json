@@ -1,0 +1,30 @@
+{
+  "name": "zkp-ra",
+  "version": "0.1.0",
+  "description": "Zero-Knowledge Proof Reasoning Anchors for Autonomous Agentic DeFi",
+  "license": "MIT",
+  "scripts": {
+    "compile:circuit": "bash scripts/compile_and_setup.sh",
+    "compile:contracts": "hardhat compile",
+    "test": "hardhat test",
+    "coverage": "hardhat coverage",
+    "lint": "eslint . --ext .ts && solhint 'contracts/**/*.sol'"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-chai-matchers": "^2.0.0",
+    "@nomicfoundation/hardhat-ethers": "^3.0.0",
+    "@nomicfoundation/hardhat-network-helpers": "^1.0.0",
+    "@openzeppelin/contracts": "^5.0.2",
+    "@typechain/hardhat": "^9.0.0",
+    "chai": "^4.4.1",
+    "ethers": "^6.11.0",
+    "hardhat": "^2.22.0",
+    "hardhat-gas-reporter": "^1.0.9",
+    "solhint": "^5.0.0",
+    "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "circomlib": "^2.0.5",
+    "snarkjs": "^0.7.4"
+  }
+}
