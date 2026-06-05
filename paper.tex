@@ -124,7 +124,7 @@ semantically invisible to the contract layer.
 Current mitigations fall into two classes. First, hardware-enforced isolation
 via TEEs (Intel TDX, AMD SEV-SNP) places agent execution inside a confidential
 computing enclave and produces remote attestation reports verifiable by
-third parties~\cite{vcnn2024}. TEE attestation proves that \emph{a specific
+third parties~\cite{karim2025aibc}. TEE attestation proves that \emph{a specific
 binary ran on certified hardware in an unmodified state}; it does not prove
 that the binary's inputs were unmanipulated, nor does it produce a short,
 on-chain-verifiable argument. Second, optimistic dispute protocols borrow
@@ -132,7 +132,7 @@ the fraud-proof architecture of rollup systems: a watchdog can challenge any
 transaction suspected of arising from corrupt state. Optimistic systems carry
 inherent latency and economic exposure during the challenge window; a
 well-timed attack with high enough value can settle before a challenge is
-completed.
+completed~\cite{zhou2023sokdefi}.
 
 ZKP-RA takes a different approach. Rather than attesting to the integrity of
 the execution environment or relying on post-hoc dispute, ZKP-RA constructs a
@@ -204,7 +204,10 @@ $$\tilde{I}_t = I_t \oplus_{\mathrm{mux}} \delta$$
 where $\oplus_{\mathrm{mux}}$ denotes structured field substitution at
 adversarially chosen indices. $\Adv$ cannot directly access $w$, cannot
 forge digital signatures on messages already broadcast, and cannot modify
-the deterministic EVM execution trace after a block is finalized.
+the deterministic EVM execution trace after a block is finalized. This
+threat class subsumes indirect prompt injection~\cite{greshake2023ipi},
+retrieval-augmented generation corpus poisoning~\cite{poisonedrag2024}, and
+on-chain oracle feed manipulation~\cite{defitrace2024}.
 \end{definition}
 
 The adversary's goal is to cause the agent to produce a transaction payload
@@ -270,7 +273,9 @@ It then computes the \emph{state commitment}:
 where $\poseidon_{\mathrm{D}}$ denotes a domain-separated sponge absorption
 over the array with domain tag $D \in \{1,2,3\}$ mixed into the initial
 capacity element. The agent calls \texttt{commitState}($H_t$) on the verifier
-contract, anchoring $H_t$ to block $b$ on-chain.
+contract, anchoring $H_t$ to block $b$ on-chain. The $\poseidon$ permutation
+is instantiated with $\alpha=5$, $R_f=8$, $R_p=57$ over BN254, as specified
+in~\cite{grassi2021poseidon}.
 
 \paragraph{Phase 2 — Proof Generation.}
 After generating transaction payload $T_x$, the agent invokes the prover
@@ -278,7 +283,7 @@ backend with private witnesses $(\mathbf{x}, \mathbf{s}, \mathbf{i},
 r_{\mathrm{router}}, \sigma)$ where $r_{\mathrm{router}}$ is the whitelisted
 router address and $\sigma$ is a fresh random salt $\sigma \xleftarrow{\$} \F_p$.
 The prover computes a Groth16 proof $\pi = (A, B, C) \in
-\mathbb{G}_1 \times \mathbb{G}_2 \times \mathbb{G}_1$ over BN254, certifying:
+\mathbb{G}_1 \times \mathbb{G}_2 \times \mathbb{G}_1$ over BN254~\cite{groth2016}, certifying:
 \begin{equation}
   \pi \leftarrow \mathsf{Prove}\!\left(
     \mathsf{pk},\;
@@ -347,7 +352,10 @@ A key design choice is \emph{not} arithmetizing the full transformer forward
 pass. ZK-constrained ML inference for general neural networks incurs a
 constraint count proportional to the number of activations; for a 7B-parameter
 model this exceeds $10^{10}$ constraints, making real-time proving infeasible
-with current hardware~\cite{peng2025survey,chen2024zkml}. ZKP-RA exploits the
+with current hardware~\cite{peng2025survey,chen2024zkml}. This scales
+qualitatively worse than the post-quantum transparent proof systems based on
+FRI~\cite{bensasson2018stark}, yet neither family is viable for full-model
+real-time proving in the DeFi settlement latency budget. ZKP-RA exploits the
 structural asymmetry between prefill and decoding:
 
 \begin{itemize}
@@ -617,7 +625,34 @@ The vCNN system~\cite{vcnn2024} applies zk-SNARKs to convolutional neural
 network inference for image classification tasks. Its R1CS circuit construction
 techniques for fixed-point arithmetic inform the range-check design in the
 ZKP-RA policy engine, specifically the bit-decomposition approach to upper-bound
-proofs.
+proofs. PLONK~\cite{plonk2019} offers a universal SRS and avoids the per-circuit
+trusted setup required by Groth16; its lookup arguments are relevant to future
+whitelist-membership optimizations in ZKP-RA.
+
+\paragraph{DeFi attack surface.}
+The SoK survey by Zhou et al.~\cite{zhou2023sokdefi} provides a systematic
+taxonomy of 4.7 years of DeFi incidents totalling \$3.24 billion in losses,
+including oracle manipulation and cross-chain bridge exploits that constitute the
+primary injection channels for the adversary in \Cref{def:adversary}.
+DeFiTrace~\cite{defitrace2024} and DeFort~\cite{defort2024} offer detection-side
+tooling; ZKP-RA is complementary in that it prevents execution of adversarially
+derived payloads regardless of whether the injection was detected.
+
+\paragraph{Autonomous agents on blockchain.}
+Karim et al.~\cite{karim2025aibc} survey the intersection of multi-agent AI and
+blockchain, introducing Proof-of-Thought consensus and highlighting the integrity
+gap that ZKP-RA addresses. The SoK by Li et al.~\cite{sokaibc2025} categorizes
+the security and privacy risks specific to AI agents operating on-chain, including
+memory leakage, decision manipulation, and oracle abuse --- all of which fall
+within the ZKP-RA adversary model.
+
+\paragraph{Indirect prompt injection and RAG poisoning.}
+Greshake et al.~\cite{greshake2023ipi} established the foundational taxonomy of
+indirect prompt injection, demonstrating working exploits against GPT-4-powered
+agents. PoisonedRAG~\cite{poisonedrag2024} showed that injecting a small number
+of adversarial documents into a retrieval corpus is sufficient to steer LLM
+outputs toward attacker-chosen targets, directly motivating the $H_t$ commitment
+mechanism in ZKP-RA.
 
 \paragraph{TEE-based agent isolation.}
 Trusted Execution Environments provide hardware-level integrity for LLM agents
@@ -627,12 +662,12 @@ EVM smart contract without additional adapter layers. ZKP-RA fills this gap by
 generating a succinct on-chain-verifiable argument, and the two approaches are
 architecturally compatible.
 
-\paragraph{Optimistic agent governance.}
-Dispute-based systems borrow the optimistic rollup model to govern autonomous
-agents by challenging suspected malicious transactions during a window period.
-Such systems are vulnerable to well-timed attacks that settle before a challenge
-completes. ZKP-RA provides cryptographic pre-settlement guarantees that do not
-depend on active monitoring or economic stake during a challenge window.
+\paragraph{Alternative proof systems.}
+STARKs~\cite{bensasson2018stark} achieve post-quantum security and require no
+trusted setup, at the cost of larger proof sizes ($\sim$45 KB vs.\ $\sim$192
+bytes for Groth16). For the on-chain settlement use case, proof size translates
+directly to calldata gas cost; the 192-byte Groth16 proof in ZKP-RA is therefore
+preferred over STARKs for the current deployment target.
 
 % ---------------------------------------------------------------------------
 \section{Conclusion}
@@ -652,39 +687,116 @@ the verifier to accept a transaction arising from manipulated inputs. The
 zero-knowledge property ensures that the proof transcript reveals nothing about
 the agent's internal reasoning state, context window, or strategy parameters.
 
-Future work will investigate batch-proof aggregation using Plonky2 or HyperPlonk
-to amortize the per-transaction proving overhead across agent epochs, and will
-examine the integration of ZKP-RA with TEE attestation chains to provide
-defense-in-depth against hardware-level adversaries.
+Future work will investigate batch-proof aggregation using PLONK~\cite{plonk2019}
+or HyperPlonk to amortize the per-transaction proving overhead across agent
+epochs, and will examine the integration of ZKP-RA with TEE attestation chains
+to provide defense-in-depth against hardware-level adversaries~\cite{sokaibc2025}.
 
 % ---------------------------------------------------------------------------
 \bibliographystyle{model1-num-names}
 \bibliography{references}
 % ---------------------------------------------------------------------------
 
-\begin{thebibliography}{9}
+\begin{thebibliography}{15}
 
 \bibitem{chen2024zkml}
-Chen, B.J., Waiwitlikhit, S., Stoica, I., \& Kang, D. (2024).
-ZKML: An Optimizing System for ML Inference in Zero-Knowledge Proofs.
-In \textit{Proceedings of the 2024 European Conference on Computer Systems
-(EuroSys '24)}, pp.\ 560--574. Association for Computing Machinery.
-\newblock \doi{10.1145/3627703.3650088}
+B.\,J.\ Chen, S.\ Waiwitlikhit, I.\ Stoica, and D.\ Kang,
+``ZKML: An Optimizing System for ML Inference in Zero-Knowledge Proofs,''
+in \textit{Proc.\ EuroSys 2024}, pp.\ 560--574, ACM, 2024.
+\newblock DOI: \texttt{10.1145/3627703.3650088}
 
-\bibitem{peng2025survey}
-Peng, Z., Zhao, C., Wang, T., Liao, G., Lin, Z., Liu, Y., Cao, B., Shi, L.,
-Yang, Q., \& Zhang, S. (2025).
-A Survey of Zero-Knowledge Proof Based Verifiable Machine Learning.
-\textit{Artificial Intelligence Review}.
-\newblock \doi{10.48550/arXiv.2502.18535}
+\bibitem{groth2016}
+J.\ Groth,
+``On the Size of Pairing-Based Non-interactive Arguments,''
+in \textit{Proc.\ EUROCRYPT 2016}, LNCS vol.\ 9666, pp.\ 305--326,
+Springer, 2016.
+\newblock DOI: \texttt{10.1007/978-3-662-49896-5\_11}
 
-\bibitem{verillm2025}
-VeriLLM: A Lightweight Framework for Publicly Verifiable Decentralized Inference.
-(2025). \textit{arXiv preprint arXiv:2509.24257v4}.
+\bibitem{grassi2021poseidon}
+L.\ Grassi, D.\ Khovratovich, C.\ Rechberger, A.\ Roy, and M.\ Schofnegger,
+``Poseidon: A New Hash Function for Zero-Knowledge Proof Systems,''
+in \textit{Proc.\ USENIX Security 2021}, pp.\ 519--535, USENIX, 2021.
+\newblock URL: \texttt{https://www.usenix.org/conference/usenixsecurity21/presentation/grassi}
+
+\bibitem{greshake2023ipi}
+K.\ Greshake, S.\ Abdelnabi, S.\ Mishra, C.\ Endres, T.\ Holz, and M.\ Fritz,
+``Not What You've Signed Up For: Compromising Real-World LLM-Integrated
+Applications with Indirect Prompt Injection,''
+in \textit{Proc.\ 16th ACM Workshop on Artificial Intelligence and Security
+(AISec@CCS 2023)}, ACM, 2023.
+\newblock DOI: \texttt{10.1145/3605764.3623985}
 
 \bibitem{vcnn2024}
-vCNN: Verifiable Convolutional Neural Network Based on zk-SNARKs.
-(2024). \textit{IEEE Transactions on Dependable and Secure Computing}, 21(4).
+S.\ Lee, H.\ Ko, J.\ Kim, and H.\ Oh,
+``vCNN: Verifiable Convolutional Neural Network Based on zk-SNARKs,''
+\textit{IEEE Trans.\ Dependable Secure Comput.}, vol.\ 21, no.\ 4,
+pp.\ 4254--4270, 2024.
+\newblock DOI: \texttt{10.1109/TDSC.2023.3348760}
+
+\bibitem{verillm2025}
+VeriLLM: A Lightweight Framework for Publicly Verifiable Decentralized Inference,
+\textit{arXiv preprint arXiv:2509.24257}, 2025.
+\newblock DOI: \texttt{10.48550/arXiv.2509.24257}
+
+\bibitem{zhou2023sokdefi}
+L.\ Zhou, X.\ Xiong, J.\ Ernstberger, S.\ Chaliasos, Z.\ Wang, Y.\ Wang,
+K.\ Qin, R.\ Wattenhofer, D.\ Song, and A.\ Gervais,
+``SoK: Decentralized Finance (DeFi) Attacks,''
+in \textit{Proc.\ IEEE Symp.\ Security \& Privacy (S\&P 2023)},
+pp.\ 2444--2461, IEEE, 2023.
+\newblock DOI: \texttt{10.1109/SP46215.2023.10179435}
+
+\bibitem{poisonedrag2024}
+Z.\ Zou, R.\ Geng, B.\ Wang, H.\ Chen, and N.\ Zhang,
+``PoisonedRAG: Knowledge Corruption Attacks to Retrieval-Augmented Generation
+of Large Language Models,''
+\textit{arXiv preprint arXiv:2402.07867}, 2024.
+\newblock DOI: \texttt{10.48550/arXiv.2402.07867}
+
+\bibitem{plonk2019}
+A.\ Gabizon, Z.\,J.\ Williamson, and O.\ Ciobotaru,
+``PLONK: Permutations over Lagrange-Bases for Oecumenical Noninteractive
+Arguments of Knowledge,''
+\textit{IACR Cryptology ePrint Archive}, Report 2019/953, 2019.
+\newblock URL: \texttt{https://eprint.iacr.org/2019/953}
+
+\bibitem{peng2025survey}
+Z.\ Peng, C.\ Zhao, T.\ Wang, G.\ Liao, Z.\ Lin, Y.\ Liu, B.\ Cao,
+L.\ Shi, Q.\ Yang, and S.\ Zhang,
+``A Survey of Zero-Knowledge Proof Based Verifiable Machine Learning,''
+\textit{Artificial Intelligence Review}, Springer, 2026.
+\newblock DOI: \texttt{10.1007/s10462-026-11557-y}
+
+\bibitem{defitrace2024}
+DeFiTrace: Event-Enriched Detection of Price Oracle Manipulation Across DeFi
+Transactions,
+\textit{ACM Trans.\ Privacy and Security}, 2024.
+\newblock DOI: \texttt{10.1145/3817054}
+
+\bibitem{bensasson2018stark}
+E.\ Ben-Sasson, I.\ Bentov, Y.\ Horesh, and M.\ Riabzev,
+``Scalable, Transparent, and Post-Quantum Secure Computational Integrity,''
+\textit{IACR Cryptology ePrint Archive}, Report 2018/046, 2018.
+\newblock URL: \texttt{https://eprint.iacr.org/2018/046}
+
+\bibitem{karim2025aibc}
+M.\,M.\ Karim, D.\,H.\ Van, S.\ Khan, Q.\ Qu, and Y.\ Kholodov,
+``AI Agents Meet Blockchain: A Survey on Secure and Scalable Collaboration
+for Multi-Agents,''
+\textit{Future Internet}, vol.\ 17, no.\ 2, p.\ 57, MDPI, 2025.
+\newblock DOI: \texttt{10.3390/fi17020057}
+
+\bibitem{sokaibc2025}
+SoK: Security and Privacy of AI Agents for Blockchain,
+\textit{arXiv preprint arXiv:2509.07131}, accepted BCCA 2025.
+\newblock DOI: \texttt{10.48550/arXiv.2509.07131}
+
+\bibitem{defort2024}
+Y.\ Xie, S.\ Zhang, J.\ Liu, X.\ Zhao, and H.\ Wang,
+``DeFort: Automatic Detection and Analysis of Price Manipulation Attacks in
+DeFi Applications,''
+in \textit{Proc.\ ISSTA 2024}, ACM, 2024.
+\newblock DOI: \texttt{10.1145/3650212.3652137}
 
 \end{thebibliography}
 
