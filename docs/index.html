@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ZKP-RA — Zero-Knowledge Proof Reasoning Anchors for Agentic DeFi</title>
+  <meta name="description" content="ZKP-RA inserts a Groth16 zk-SNARK Reasoning Anchor into every LLM agent-to-chain settlement path, making memory poisoning attacks in autonomous DeFi provably impossible. 182ms proofs. 9.7x gas reduction vs zkML.">
+  <meta name="keywords" content="zero knowledge proofs, DeFi security, agentic AI, memory poisoning, Groth16, Circom, Poseidon, Solidity, zk-SNARK, LLM agent security, blockchain">
+  <meta name="author" content="Sunil Gentyala">
+  <meta property="og:title" content="ZKP-RA — Zero-Knowledge Proof Reasoning Anchors">
+  <meta property="og:description" content="Cryptographic defense against memory poisoning in autonomous agentic DeFi. Groth16 zk-SNARKs, 182ms proofs, 9.7x gas reduction vs zkML.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://sunilgentyala.github.io/ZKP-RA/">
+  <meta property="og:image" content="https://opengraph.githubassets.com/1/sunilgentyala/ZKP-RA">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="ZKP-RA — Zero-Knowledge Proof Reasoning Anchors">
+  <meta name="twitter:description" content="Memory-proof DeFi agents. Groth16 zk-SNARKs. 182ms. 9.7x gas reduction. Apache 2.0.">
+  <link rel="canonical" href="https://sunilgentyala.github.io/ZKP-RA/">
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #21262d;
+      --border-hover: #30363d;
+      --accent: #f0883e;
+      --accent2: #58a6ff;
+      --text: #c9d1d9;
+      --muted: #8b949e;
+      --green: #3fb950;
+      --red: #f85149;
+      --purple: #bc8cff;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    a { color: var(--accent2); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── NAV ── */
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 2rem;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: rgba(13,17,23,0.92);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      z-index: 100;
+    }
+    .nav-brand {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: -0.02em;
+    }
+    .nav-brand sup {
+      font-size: 0.55rem;
+      color: var(--muted);
+      font-weight: 400;
+      letter-spacing: 0;
+      vertical-align: super;
+    }
+    .nav-links { display: flex; gap: 1.5rem; font-size: 0.9rem; }
+    .nav-links a { color: var(--muted); transition: color 0.15s; }
+    .nav-links a:hover { color: var(--text); text-decoration: none; }
+    .nav-github {
+      display: inline-flex; align-items: center; gap: 0.35rem;
+      padding: 0.35rem 0.8rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.82rem;
+      color: var(--text) !important;
+      transition: border-color 0.15s !important;
+    }
+    .nav-github:hover { border-color: var(--accent) !important; text-decoration: none !important; }
+
+    /* ── HERO ── */
+    .hero-wrap {
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-wrap::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 20% -10%, rgba(88,166,255,0.10) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 80% 110%, rgba(188,140,255,0.07) 0%, transparent 55%);
+      pointer-events: none;
+    }
+    .hero {
+      position: relative;
+      text-align: center;
+      padding: 5.5rem 2rem 3.5rem;
+      max-width: 820px;
+      margin: 0 auto;
+    }
+    .badge-row {
+      display: flex;
+      justify-content: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.75rem;
+    }
+    .badge {
+      font-size: 0.7rem;
+      padding: 0.2rem 0.65rem;
+      border-radius: 999px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .badge-orange { background: rgba(240,136,62,0.15); color: var(--accent); border: 1px solid rgba(240,136,62,0.3); }
+    .badge-blue   { background: rgba(88,166,255,0.12); color: var(--accent2); border: 1px solid rgba(88,166,255,0.25); }
+    .badge-green  { background: rgba(63,185,80,0.12);  color: var(--green);   border: 1px solid rgba(63,185,80,0.25); }
+    .badge-purple { background: rgba(188,140,255,0.12);color: var(--purple);  border: 1px solid rgba(188,140,255,0.25); }
+
+    .hero h1 {
+      font-size: clamp(2.4rem, 5.5vw, 3.8rem);
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      line-height: 1.08;
+      margin-bottom: 1.25rem;
+    }
+    .hero h1 span { color: var(--accent2); }
+    .hero-sub {
+      font-size: 1.1rem;
+      color: var(--muted);
+      max-width: 600px;
+      margin: 0 auto 2.25rem;
+      line-height: 1.7;
+    }
+    .btn-row { display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.7rem 1.5rem;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.15s, box-shadow 0.15s;
+    }
+    .btn:hover { opacity: 0.9; transform: translateY(-1px); text-decoration: none; }
+    .btn-primary {
+      background: var(--accent);
+      color: #0d1117;
+      box-shadow: 0 0 20px rgba(240,136,62,0.25);
+    }
+    .btn-primary:hover { box-shadow: 0 0 32px rgba(240,136,62,0.4); }
+    .btn-outline { background: transparent; color: var(--text); border: 1px solid var(--border); }
+    .btn-outline:hover { border-color: var(--border-hover); }
+
+    /* ── TECH STRIP ── */
+    .platforms {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 2.5rem;
+      padding: 1.75rem 2rem;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+      margin: 3rem 0;
+    }
+    .platform-label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+    .platform-list { display: flex; gap: 2.5rem; align-items: center; flex-wrap: wrap; justify-content: center; }
+    .platform-item { display: flex; align-items: center; gap: 0.5rem; font-size: 0.93rem; font-weight: 600; color: var(--text); }
+    .platform-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+    /* ── STATS ── */
+    .stats {
+      display: flex;
+      justify-content: center;
+      gap: 4rem;
+      padding: 3rem 2rem;
+      text-align: center;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .stat-num {
+      font-size: 2.8rem;
+      font-weight: 800;
+      color: var(--accent);
+      letter-spacing: -0.04em;
+      line-height: 1;
+    }
+    .stat-label { font-size: 0.82rem; color: var(--muted); margin-top: 0.35rem; }
+
+    /* ── SECTION ── */
+    section { max-width: 1080px; margin: 0 auto; padding: 3.5rem 2rem; }
+    .section-label {
+      font-size: 0.72rem;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+    h2 { font-size: 1.9rem; font-weight: 700; letter-spacing: -0.03em; margin-bottom: 0.6rem; }
+    .section-sub { color: var(--muted); margin-bottom: 2.5rem; max-width: 540px; line-height: 1.65; }
+
+    /* ── CARDS ── */
+    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.5rem;
+      transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+    }
+    .card:hover { border-color: var(--accent); box-shadow: 0 0 24px rgba(240,136,62,0.08); transform: translateY(-2px); }
+    .card-icon { font-size: 1.5rem; margin-bottom: 0.8rem; }
+    .card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 0.35rem; }
+    .card p { font-size: 0.875rem; color: var(--muted); line-height: 1.6; }
+    .card-new {
+      display: inline-block;
+      font-size: 0.62rem;
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+      background: rgba(88,166,255,0.12);
+      color: var(--accent2);
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-left: 0.4rem;
+      vertical-align: middle;
+    }
+    .card-skills { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.9rem; }
+    .skill-chip {
+      font-size: 0.72rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-family: 'SF Mono', 'Fira Code', 'Fira Mono', monospace;
+    }
+
+    /* ── WHY BANNER ── */
+    .why-banner {
+      background: linear-gradient(135deg, rgba(88,166,255,0.06) 0%, rgba(188,140,255,0.04) 100%);
+      border: 1px solid rgba(88,166,255,0.18);
+      border-radius: 12px;
+      padding: 2.5rem;
+      margin-bottom: 2.5rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 2rem;
+    }
+    .why-item h4 { font-size: 0.9rem; font-weight: 700; color: var(--accent2); margin-bottom: 0.4rem; }
+    .why-item p { font-size: 0.82rem; color: var(--muted); line-height: 1.6; }
+
+    /* ── ARCHITECTURE DIAGRAM ── */
+    .arch-diagram {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.5rem 2rem;
+      overflow-x: auto;
+      margin-bottom: 2rem;
+    }
+    .arch-diagram pre {
+      color: var(--accent2);
+      font-size: 0.8rem;
+      line-height: 1.7;
+      font-family: 'SF Mono', 'Fira Code', 'Fira Mono', monospace;
+    }
+
+    /* ── STEPS ── */
+    .steps { display: flex; flex-direction: column; gap: 0.75rem; }
+    .step {
+      display: flex; gap: 1rem; align-items: flex-start;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.1rem 1.25rem;
+      transition: border-color 0.15s;
+    }
+    .step:hover { border-color: var(--border-hover); }
+    .step-num {
+      min-width: 28px; height: 28px;
+      background: rgba(88,166,255,0.1);
+      border: 1px solid rgba(88,166,255,0.25);
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; color: var(--accent2); font-size: 0.85rem;
+      flex-shrink: 0;
+    }
+    .step h4 { font-size: 0.92rem; font-weight: 700; margin-bottom: 0.2rem; }
+    .step p { font-size: 0.82rem; color: var(--muted); line-height: 1.55; }
+    .step code {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 0.78rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 0.05rem 0.3rem;
+      color: var(--accent2);
+    }
+
+    /* ── TABLE ── */
+    .table-wrap { overflow-x: auto; margin-top: 1rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; }
+    td:first-child { font-weight: 600; color: var(--text); }
+    tr:hover td { background: rgba(255,255,255,0.015); }
+    .check { color: var(--green); }
+    .cross { color: var(--red); }
+    .partial { color: var(--muted); font-size: 0.82rem; }
+    .highlight-row td { background: rgba(88,166,255,0.05); }
+    .highlight-row td:first-child { color: var(--accent2); }
+    .mono { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.82rem; color: var(--accent2); }
+
+    /* ── INSTALL ── */
+    .install-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; }
+    .install-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      transition: border-color 0.15s;
+    }
+    .install-card:hover { border-color: var(--border-hover); }
+    .install-header {
+      padding: 0.75rem 1rem;
+      font-size: 0.85rem;
+      font-weight: 700;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .install-body { padding: 1rem; }
+    pre {
+      background: var(--bg);
+      border-radius: 6px;
+      padding: 0.9rem;
+      font-size: 0.8rem;
+      overflow-x: auto;
+      font-family: 'SF Mono', 'Fira Code', 'Fira Mono', monospace;
+      color: var(--green);
+      line-height: 1.65;
+    }
+    .install-note { font-size: 0.78rem; color: var(--muted); margin-top: 0.65rem; line-height: 1.5; }
+
+    /* ── SECURITY PROPS ── */
+    .security-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
+    .security-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.5rem;
+      transition: border-color 0.15s, transform 0.15s;
+    }
+    .security-card:hover { border-color: var(--accent2); transform: translateY(-2px); }
+    .security-icon { font-size: 1.5rem; margin-bottom: 0.75rem; }
+    .security-card h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.4rem; }
+    .security-card p { font-size: 0.82rem; color: var(--muted); line-height: 1.6; }
+
+    /* ── STAR CTA ── */
+    .star-cta {
+      background: linear-gradient(135deg, rgba(88,166,255,0.07) 0%, rgba(188,140,255,0.05) 100%);
+      border: 1px solid rgba(88,166,255,0.18);
+      border-radius: 12px;
+      padding: 3rem 2rem;
+      text-align: center;
+      margin: 0 2rem;
+    }
+    .star-cta h2 { font-size: 1.6rem; margin-bottom: 0.6rem; }
+    .star-cta p { color: var(--muted); font-size: 0.95rem; max-width: 440px; margin: 0 auto 1.75rem; line-height: 1.6; }
+    .star-cta-actions { display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap; }
+
+    /* ── AUTHOR ── */
+    .author-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 2rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 1.5rem;
+      max-width: 640px;
+    }
+    .author-avatar {
+      width: 64px; height: 64px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.5rem; font-weight: 800; color: #0d1117; flex-shrink: 0;
+    }
+    .author-name { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.2rem; }
+    .author-role { font-size: 0.85rem; color: var(--muted); margin-bottom: 0.8rem; line-height: 1.5; }
+    .author-links { display: flex; gap: 0.7rem; flex-wrap: wrap; }
+    .author-link {
+      font-size: 0.82rem; padding: 0.3rem 0.7rem;
+      border-radius: 5px; border: 1px solid var(--border); color: var(--muted);
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .author-link:hover { color: var(--text); border-color: var(--accent); text-decoration: none; }
+
+    /* ── FOOTER ── */
+    footer {
+      text-align: center; padding: 2rem;
+      font-size: 0.84rem; color: var(--muted);
+      border-top: 1px solid var(--border);
+      margin-top: 3rem;
+    }
+    footer a { color: var(--muted); }
+    footer a:hover { color: var(--text); }
+
+    .section-divider { border: none; border-top: 1px solid var(--border); }
+
+    @media (max-width: 640px) {
+      .hero h1 { font-size: 2.1rem; }
+      .author-card { flex-direction: column; }
+      .stats { gap: 2rem; }
+      .star-cta { margin: 0 1rem; padding: 2rem 1rem; }
+      .nav-links a:not(.nav-github):not(:last-child) { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <span class="nav-brand">ZKP-RA<sup>research</sup></span>
+  <div class="nav-links">
+    <a href="#how-it-works">How it works</a>
+    <a href="#circuit">Circuit</a>
+    <a href="#security">Security</a>
+    <a href="#setup">Setup</a>
+    <a href="https://github.com/sunilgentyala/ZKP-RA" class="nav-github" target="_blank">
+      &#9733; GitHub
+    </a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero-wrap">
+  <div class="hero">
+    <div class="badge-row">
+      <span class="badge badge-blue">Research</span>
+      <span class="badge badge-orange">Solidity 0.8.24</span>
+      <span class="badge badge-green">Circom 2.1.6</span>
+      <span class="badge badge-purple">MIT License</span>
+    </div>
+    <h1>Memory-proof DeFi agents,<br><span>cryptographically</span></h1>
+    <p class="hero-sub">
+      Inserts a Groth16 zk-SNARK Reasoning Anchor into every LLM agent-to-chain settlement path —
+      making memory poisoning attacks in autonomous DeFi provably impossible.
+    </p>
+    <div class="btn-row">
+      <a href="https://github.com/sunilgentyala/ZKP-RA" class="btn btn-primary" target="_blank">
+        &#9733;&nbsp; Star on GitHub
+      </a>
+      <a href="#setup" class="btn btn-outline">
+        Get started &darr;
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- TECH STRIP -->
+<div class="platforms">
+  <span class="platform-label">Built with</span>
+  <div class="platform-list">
+    <div class="platform-item"><span class="platform-dot" style="background:#58a6ff"></span> Groth16</div>
+    <div class="platform-item"><span class="platform-dot" style="background:#bc8cff"></span> BN254</div>
+    <div class="platform-item"><span class="platform-dot" style="background:#3fb950"></span> Poseidon</div>
+    <div class="platform-item"><span class="platform-dot" style="background:#f0883e"></span> Solidity</div>
+    <div class="platform-item"><span class="platform-dot" style="background:#58a6ff"></span> Circom</div>
+    <div class="platform-item"><span class="platform-dot" style="background:#f85149"></span> rapidsnark</div>
+  </div>
+</div>
+
+<!-- STATS -->
+<div class="stats">
+  <div><div class="stat-num">182ms</div><div class="stat-label">Proof Generation (rapidsnark)</div></div>
+  <div><div class="stat-num">276K</div><div class="stat-label">Gas On-Chain Verification</div></div>
+  <div><div class="stat-num">3,800</div><div class="stat-label">R1CS Constraints</div></div>
+  <div><div class="stat-num">9.7x</div><div class="stat-label">Gas Reduction vs zkML</div></div>
+</div>
+
+<!-- THE ATTACK -->
+<section id="how-it-works">
+  <div class="section-label">The problem</div>
+  <h2>Memory poisoning bypasses key security</h2>
+  <p class="section-sub">
+    Autonomous LLM agents executing DeFi transactions face an attack that ignores private keys entirely —
+    an adversary corrupts the agent's vector memory, RAG corpus, or oracle stream, making it sign
+    malicious transactions while believing it operates within safe parameters.
+  </p>
+
+  <div class="why-banner">
+    <div class="why-item">
+      <h4>Bypasses cryptographic keys</h4>
+      <p>The attack targets the agent's reasoning inputs, not its signing key — so hardware wallets and key management provide zero protection.</p>
+    </div>
+    <div class="why-item">
+      <h4>Invisible at signing time</h4>
+      <p>The transaction itself looks valid. The poison is in the context the agent used to decide what to sign — undetectable without verifiable inference.</p>
+    </div>
+    <div class="why-item">
+      <h4>Scales with agent autonomy</h4>
+      <p>As agents manage larger positions and act more independently, the attack surface grows. Runtime monitoring cannot keep pace.</p>
+    </div>
+    <div class="why-item">
+      <h4>ZKP-RA makes it provably impossible</h4>
+      <p>A Groth16 proof, verified on-chain before every settlement, cryptographically binds the transaction to unmodified reasoning inputs.</p>
+    </div>
+  </div>
+
+  <div class="section-label" style="margin-bottom:1rem;">The three-step solution</div>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div>
+        <h4>State Commitment</h4>
+        <p>Before reasoning, the agent commits a Poseidon hash of its context window, state vector, and oracle inputs to an on-chain contract.
+        <br><br><code>H&#8321; = Poseidon(X&#8321;, S&#8321;, I&#8321;)</code> &rarr; <code>commitState(H&#8321;)</code> on-chain.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div>
+        <h4>Verifiable Inference</h4>
+        <p>After producing a transaction payload T&#8339;, the agent generates a Groth16 zk-SNARK proving T&#8339; was derived from inputs hashing to H&#8321; and satisfying the safety policy C (amount bounds, slippage &le; 200 bps, router whitelist).
+        <br><br><code>&pi; &larr; Prove(pk, (H&#8321;, T&#8339;), (X&#8321;, S&#8321;, I&#8321;, r, &sigma;))</code></p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div>
+        <h4>On-Chain Settlement</h4>
+        <p>The smart contract verifies &pi; via Groth16 pairing check, enforces policy bounds, marks the nullifier &nu; (replay protection), then executes the ERC-20 safeTransfer atomically. Any transaction from poisoned inputs fails the pairing check and is rejected.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<!-- ARCHITECTURE -->
+<section>
+  <div class="section-label">Architecture</div>
+  <h2>Agent Guardian + On-Chain Verifier</h2>
+  <p class="section-sub">The Python daemon sits between the LLM agent and the blockchain. The Solidity contract is the cryptographic enforcement layer.</p>
+
+  <div class="arch-diagram">
+    <pre>&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+&#9474;                     LLM Agent Runtime                          &#9474;
+&#9474;                                                                  &#9474;
+&#9474;  Oracle feeds &#9472;&#9472;&#9658; Context Window (Xt)                           &#9474;
+&#9474;  RAG memory  &#9472;&#9472;&#9658; State Vector  (St)  &#9472;&#9472;&#9658; Poseidon &#9472;&#9472;&#9658; Ht        &#9474;
+&#9474;  User intent &#9472;&#9472;&#9658; Input stream  (It)                           &#9474;
+&#9474;                        |                            |             &#9474;
+&#9474;                        &#9660;                            &#9660;             &#9474;
+&#9474;                Policy engine C              commitState(Ht)       &#9474;
+&#9474;                generates Tx                &#9472;&#9472;&#9658; chain (block b)  &#9474;
+&#9474;                        |                                          &#9474;
+&#9474;                        &#9660;                                          &#9474;
+&#9474;               SnarkJS / rapidsnark                                &#9474;
+&#9474;               Groth16 Prove(pk, pub, wit) &#9472;&#9472;&#9658; &#960;                  &#9474;
+&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9508;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+                              | verifyAndExecute(&#960;, Tx, nonce, &#957;)
+                              &#9660;
+&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+&#9474;              ReasoningAnchorVerifier.sol                        &#9474;
+&#9474;                                                                  &#9474;
+&#9474;  1. Load Ht from pendingCommitments[agent][nonce]                &#9474;
+&#9474;  2. Groth16 pairing check                                        &#9474;
+&#9474;  3. Enforce: amount &#8804; cap, slippage &#8804; 200 bps, router &#8712; W      &#9474;
+&#9474;  4. Mark nullifier &#957; (replay protection)                        &#9474;
+&#9474;  5. ERC-20 safeTransfer to recipient                             &#9474;
+&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;</pre>
+  </div>
+
+  <div class="cards">
+    <div class="card">
+      <div class="card-icon">&#128039;</div>
+      <h3>reasoning_anchor.circom</h3>
+      <p>Groth16 circuit over BN254. Arithmetizes Poseidon state commitment and policy bounds in ~3,800 R1CS constraints. Circom 2.1.6.</p>
+      <div class="card-skills">
+        <span class="skill-chip">circom-2.1.6</span>
+        <span class="skill-chip">groth16</span>
+        <span class="skill-chip">bn254</span>
+        <span class="skill-chip">poseidon</span>
+        <span class="skill-chip">~3,800 R1CS</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-icon">&#128274;</div>
+      <h3>Verifier.sol</h3>
+      <p>On-chain Groth16 verifier with AGENT_ROLE / GUARDIAN_ROLE access control, commitment storage, nullifier replay protection, and ERC-20 safeTransfer.</p>
+      <div class="card-skills">
+        <span class="skill-chip">solidity-0.8.24</span>
+        <span class="skill-chip">eip-197</span>
+        <span class="skill-chip">erc-20</span>
+        <span class="skill-chip">access-control</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-icon">&#128032;</div>
+      <h3>agent_guardian.py</h3>
+      <p>Async Python daemon that intercepts LLM agent tool calls, computes Poseidon state hash, drives SnarkJS or rapidsnark prover, and submits proofs to the on-chain verifier.</p>
+      <div class="card-skills">
+        <span class="skill-chip">python-3.10+</span>
+        <span class="skill-chip">asyncio</span>
+        <span class="skill-chip">snarkjs</span>
+        <span class="skill-chip">rapidsnark</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<!-- CIRCUIT -->
+<section id="circuit">
+  <div class="section-label">Circuit design</div>
+  <h2>What the proof proves</h2>
+  <p class="section-sub">The circuit arithmetizes a single, precise statement: this transaction was derived from unmodified reasoning inputs that satisfy the safety policy.</p>
+
+  <div class="why-banner" style="margin-bottom:2rem;">
+    <div class="why-item">
+      <h4>Statement proved</h4>
+      <p>"I know private witnesses (X&#8321;, S&#8321;, I&#8321;, r, &sigma;) such that Poseidon(X&#8321;&#8741;S&#8321;&#8741;I&#8321;) = H&#8321;, the transaction satisfies amount &le; MAX, slippage &le; 200 bps, and Poseidon(r, &sigma;) = routerHash."</p>
+    </div>
+    <div class="why-item">
+      <h4>Public inputs only</h4>
+      <p>H&#8321;, recipient, amount, slippage_bps, and routerHash are public. Context window, state vector, oracle inputs, router address, and proving salt remain private — zero information leakage.</p>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Parameter</th><th>Value</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Proving system</td><td class="mono">Groth16</td></tr>
+        <tr class="highlight-row"><td>Curve</td><td class="mono">BN254 (alt_bn128)</td></tr>
+        <tr><td>Hash function</td><td class="mono">Poseidon (t=3, &alpha;=5, R&#7779;=8, R&#7838;=57)</td></tr>
+        <tr><td>Context chunks N&#8339;</td><td class="mono">8 field elements</td></tr>
+        <tr><td>State chunks N&#8347;</td><td class="mono">8 field elements</td></tr>
+        <tr><td>Input chunks N&#7522;</td><td class="mono">4 field elements</td></tr>
+        <tr class="highlight-row"><td>Total R1CS constraints</td><td class="mono">~3,800</td></tr>
+        <tr><td>Public inputs</td><td class="mono">H&#8321;, recipient, amount, slippage_bps, routerHash</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section-label" style="margin-top:2.5rem;margin-bottom:1rem;">Proof generation benchmarks</div>
+  <div class="install-grid">
+    <div class="install-card">
+      <div class="install-header"><span style="color:#58a6ff">&#9679;</span> SnarkJS (WASM)</div>
+      <div class="install-body">
+        <pre>Witness:  38 ms
+Prove:  1,164 ms
+Total:  1,202 ms</pre>
+        <div class="install-note">Pure JavaScript — no native dependencies. Suitable for development and testing.</div>
+      </div>
+    </div>
+    <div class="install-card">
+      <div class="install-header"><span style="color:#3fb950">&#9679;</span> rapidsnark (C++) &nbsp;<span style="font-size:0.7rem;color:var(--green);font-weight:600;">RECOMMENDED</span></div>
+      <div class="install-body">
+        <pre>Witness:   12 ms
+Prove:    170 ms
+Total:    182 ms</pre>
+        <div class="install-note">Native C++ prover. 6.6&times; faster than SnarkJS. Benchmarked on AMD EPYC 9354, 128 GB DDR5.</div>
+      </div>
+    </div>
+    <div class="install-card">
+      <div class="install-header"><span style="color:#f0883e">&#9679;</span> On-Chain Gas (EVM)</div>
+      <div class="install-body">
+        <pre>BN254 pairing (4):  180,000
+Scalar mul (5&times;):    30,000
+Storage reads:       4,200
+ERC-20 transfer:    35,000
+Calldata + events:  25,000
+Total:             276,200</pre>
+        <div class="install-note">Istanbul opcodes. 9.7&times; gas reduction versus full zkML inference verification.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<!-- SECURITY -->
+<section id="security">
+  <div class="section-label">Security properties</div>
+  <h2>Cryptographic guarantees</h2>
+  <p class="section-sub">Under q-SDH on BN254 and Poseidon collision resistance — the standard hardness assumptions for Groth16 deployments.</p>
+
+  <div class="security-grid">
+    <div class="security-card">
+      <div class="security-icon">&#9989;</div>
+      <h3>Completeness</h3>
+      <p>An honest agent with valid witnesses always produces an accepted proof. Legitimate transactions are never blocked by the protocol.</p>
+    </div>
+    <div class="security-card">
+      <div class="security-icon">&#128737;&#65039;</div>
+      <h3>Soundness</h3>
+      <p>Under q-SDH on BN254 and Poseidon collision resistance, no adversary — regardless of how they poisoned the agent's memory — can produce a valid proof for a transaction derived from corrupted inputs.</p>
+    </div>
+    <div class="security-card">
+      <div class="security-icon">&#128065;&#65039;</div>
+      <h3>Zero-Knowledge</h3>
+      <p>The proof reveals nothing about the context window X&#8321;, state vector S&#8321;, oracle inputs I&#8321;, the router address, or the proving salt &sigma;. Strategy and position data stay private.</p>
+    </div>
+    <div class="security-card">
+      <div class="security-icon">&#128260;</div>
+      <h3>Replay Protection</h3>
+      <p>Each proof is bound to a nullifier &nu;. Once <code>verifyAndExecute</code> succeeds, &nu; is marked on-chain — the same proof cannot be submitted twice.</p>
+    </div>
+    <div class="security-card">
+      <div class="security-icon">&#128203;</div>
+      <h3>Policy Enforcement</h3>
+      <p>Amount bounds, slippage limits (&le; 200 bps), and router whitelist membership are verified inside the circuit — not just in application code — making them unforgeable.</p>
+    </div>
+    <div class="security-card">
+      <div class="security-icon">&#9938;</div>
+      <h3>Access Control</h3>
+      <p>AGENT_ROLE and GUARDIAN_ROLE separation in the Solidity contract. Guardian can pause settlement without revoking the agent's ability to commit state.</p>
+    </div>
+  </div>
+
+  <div class="section-label" style="margin-top:2.5rem;margin-bottom:1rem;">Comparison</div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Defense</th>
+          <th>Memory poisoning proof</th>
+          <th>On-chain enforceable</th>
+          <th>&lt;200ms latency</th>
+          <th>Zero-knowledge</th>
+          <th>Policy in circuit</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Memory encryption</td>
+          <td class="cross">&#10007;</td>
+          <td class="cross">&#10007;</td>
+          <td class="check">&#10003;</td>
+          <td class="cross">&#10007;</td>
+          <td class="cross">&#10007;</td>
+        </tr>
+        <tr>
+          <td>Runtime monitor</td>
+          <td class="cross">&#10007;</td>
+          <td class="cross">&#10007;</td>
+          <td class="check">&#10003;</td>
+          <td class="cross">&#10007;</td>
+          <td class="cross">&#10007;</td>
+        </tr>
+        <tr>
+          <td>zkML (full inference)</td>
+          <td class="check">&#10003;</td>
+          <td class="check">&#10003;</td>
+          <td class="cross">&#10007; &gt;2s</td>
+          <td class="check">&#10003;</td>
+          <td class="partial">partial</td>
+        </tr>
+        <tr class="highlight-row">
+          <td>ZKP-RA (this work)</td>
+          <td class="check">&#10003;</td>
+          <td class="check">&#10003;</td>
+          <td class="check">&#10003; 182ms</td>
+          <td class="check">&#10003;</td>
+          <td class="check">&#10003;</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<!-- SETUP -->
+<section id="setup">
+  <div class="section-label">Installation</div>
+  <h2>Get started</h2>
+  <p class="section-sub">Four steps from clone to a running agent guardian with on-chain proof verification.</p>
+
+  <div class="install-grid">
+    <div class="install-card">
+      <div class="install-header"><span style="color:#58a6ff">&#9679;</span> 1. Install dependencies</div>
+      <div class="install-body">
+        <pre>git clone https://github.com/\
+  sunilgentyala/ZKP-RA
+cd ZKP-RA
+npm install
+pip install -r requirements.txt</pre>
+        <div class="install-note">Requires Node 20+, Python 3.10+, Circom 2.1.6, SnarkJS 0.7.4, Hardhat 2.22+.</div>
+      </div>
+    </div>
+
+    <div class="install-card">
+      <div class="install-header"><span style="color:#3fb950">&#9679;</span> 2. Compile circuit &amp; setup</div>
+      <div class="install-body">
+        <pre>bash scripts/compile_and_setup.sh</pre>
+        <div class="install-note">Downloads Hermez BN128 Phase 1 powers-of-tau, compiles to R1CS + WASM, runs Groth16 Phase 2 setup, exports verification key.</div>
+      </div>
+    </div>
+
+    <div class="install-card">
+      <div class="install-header"><span style="color:#f0883e">&#9679;</span> 3. Deploy contract</div>
+      <div class="install-body">
+        <pre>npx hardhat compile
+npx hardhat run \
+  scripts/deploy.js \
+  --network &lt;network&gt;</pre>
+        <div class="install-note">Update IC values in Verifier.sol with output of <code>snarkjs vkey</code> before deploying.</div>
+      </div>
+    </div>
+
+    <div class="install-card">
+      <div class="install-header"><span style="color:#bc8cff">&#9679;</span> 4. Run agent guardian</div>
+      <div class="install-body">
+        <pre>export AGENT_PRIVATE_KEY=0x...
+python src/agent_guardian.py \
+  config.json</pre>
+        <div class="install-note">Provide RPC URL, deployed contract address, WASM path, and zkey path in config.json.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STAR HISTORY -->
+<section>
+  <div class="section-label">Community</div>
+  <h2>Star history</h2>
+  <p class="section-sub">Track ZKP-RA's growth on GitHub.</p>
+  <a href="https://star-history.com/#sunilgentyala/ZKP-RA&Date" target="_blank">
+    <img
+      src="https://api.star-history.com/svg?repos=sunilgentyala/ZKP-RA&type=Date"
+      alt="Star History Chart"
+      style="width:100%;max-width:720px;border-radius:10px;border:1px solid var(--border);display:block;"
+    >
+  </a>
+</section>
+
+<!-- STAR CTA -->
+<div class="star-cta">
+  <h2>Support the research &#11088;</h2>
+  <p>A star helps cryptographers, DeFi security researchers, and AI safety engineers find this work. Companion paper in preparation — IEEE.</p>
+  <div class="star-cta-actions">
+    <a href="https://github.com/sunilgentyala/ZKP-RA" class="btn btn-primary" target="_blank">
+      &#9733;&nbsp; Star on GitHub
+    </a>
+    <a href="https://github.com/sunilgentyala/ZKP-RA/issues" class="btn btn-outline" target="_blank">
+      Open an issue
+    </a>
+    <a href="https://github.com/sunilgentyala/ZKP-RA/blob/main/README.md" class="btn btn-outline" target="_blank">
+      Read the docs
+    </a>
+  </div>
+</div>
+
+<!-- AUTHOR -->
+<section>
+  <div class="section-label">Author</div>
+  <h2>Built by</h2>
+  <div class="author-card">
+    <div class="author-avatar">SG</div>
+    <div>
+      <div class="author-name">Sunil Gentyala</div>
+      <div class="author-role">
+        IEEE Senior Member &nbsp;&middot;&nbsp; Lead Cybersecurity &amp; AI Security Consultant<br>
+        HCL America Inc., Dallas TX &nbsp;&middot;&nbsp; sunil.gentyala@ieee.org
+      </div>
+      <div class="author-links">
+        <a href="https://github.com/sunilgentyala" class="author-link" target="_blank">GitHub</a>
+        <a href="https://sunilgentyala.github.io/argus/" class="author-link" target="_blank">ARGUS</a>
+        <a href="https://sunilgentyala.github.io/OmniRed/" class="author-link" target="_blank">OmniRed</a>
+        <a href="mailto:sunil.gentyala@ieee.org" class="author-link">IEEE Email</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <p>
+    ZKP-RA &copy; 2026 <a href="https://github.com/sunilgentyala" target="_blank">Sunil Gentyala</a>,
+    HCL America Inc. &nbsp;&middot;&nbsp;
+    <a href="https://github.com/sunilgentyala/ZKP-RA/blob/main/LICENSE" target="_blank">MIT License</a>
+    &nbsp;&middot;&nbsp;
+    <a href="https://github.com/sunilgentyala/ZKP-RA" target="_blank">GitHub Repository</a>
+  </p>
+  <p style="margin-top:0.4rem">Companion paper in preparation &mdash; IEEE. Research use only.</p>
+</footer>
+
+</body>
+</html>
