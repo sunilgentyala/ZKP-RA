@@ -60,8 +60,11 @@
 \title{ZKP-RA: Zero-Knowledge Proof Reasoning Anchors for Mitigating\\
        Memory Poisoning in Autonomous Agentic DeFi}
 
-\author[hcl]{Sunil Gentyala}
+\author[hcl]{Sunil Gentyala\corref{cor1}}
+\cortext[cor1]{Corresponding author.}
 \ead{sunil.gentyala@ieee.org}
+\fntext[fn1]{Code and circuit artifacts available at:
+\url{https://github.com/sunilgentyala/ZKP-RA}}
 
 \address[hcl]{HCL America Inc., Independent Research Division}
 
@@ -691,6 +694,21 @@ Future work will investigate batch-proof aggregation using PLONK~\cite{plonk2019
 or HyperPlonk to amortize the per-transaction proving overhead across agent
 epochs, and will examine the integration of ZKP-RA with TEE attestation chains
 to provide defense-in-depth against hardware-level adversaries~\cite{sokaibc2025}.
+
+% ---------------------------------------------------------------------------
+\section*{Code Availability}
+% ---------------------------------------------------------------------------
+
+The complete implementation of ZKP-RA --- including the Groth16 verifier
+contract (\texttt{contracts/Verifier.sol}), the Circom 2.1.6 reasoning anchor
+circuit (\texttt{circuits/reasoning\_anchor.circom}), the asynchronous Python
+agent guardian daemon (\texttt{src/agent\_guardian.py}), and the circuit
+compile and trusted-setup automation scripts --- is openly available under the
+MIT License at:
+
+\begin{center}
+\url{https://github.com/sunilgentyala/ZKP-RA}
+\end{center}
 
 % ---------------------------------------------------------------------------
 \bibliographystyle{model1-num-names}
