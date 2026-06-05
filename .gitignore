@@ -1,0 +1,10 @@
+﻿*.tex
+*.docx
+*.pdf
+*.bib
+*.aux
+*.log
+*.out
+*.synctex.gz
+paper/
+_paper/

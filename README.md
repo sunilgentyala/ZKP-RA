@@ -45,6 +45,9 @@ ZKP-RA/
 └── requirements.txt
 ```
 
+> **Manuscript:** The companion academic paper is under review. Full text will be made available upon publication.
+
+
 ---
 
 ## Architecture
