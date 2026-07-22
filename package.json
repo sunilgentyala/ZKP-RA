@@ -8,7 +8,10 @@
     "compile:contracts": "hardhat compile",
     "test": "hardhat test",
     "coverage": "hardhat coverage",
-    "lint": "eslint . --ext .ts && solhint 'contracts/**/*.sol'"
+    "lint": "eslint . --ext .ts && solhint 'contracts/**/*.sol'",
+    "benchmark:input": "node scripts/benchmark/gen_input.cjs",
+    "benchmark:proof": "node scripts/benchmark/bench.cjs",
+    "benchmark:gas": "hardhat run scripts/benchmark/measure_gas.cjs"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.0",

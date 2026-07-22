@@ -8,3 +8,12 @@
 *.synctex.gz
 paper/
 _paper/
+
+# Build artifacts (regenerate via scripts/compile_and_setup.sh or npm run benchmark:*)
+node_modules/
+build/
+bin/
+cache/
+artifacts/
+typechain-types/
+*.ptau

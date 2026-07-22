@@ -35,7 +35,6 @@ from typing import Any, Optional, Sequence
 
 import aiohttp
 import structlog
-from eth_abi import encode as abi_encode
 from pydantic import BaseModel, field_validator
 from web3 import AsyncWeb3
 from web3.middleware import ExtraDataToPOAMiddleware
@@ -204,8 +203,7 @@ class TxPayload(BaseModel):
 @dataclass
 class ProofBundle:
     proof: dict        # Groth16 proof: {A: [x,y], B: [[x0,x1],[y0,y1]], C: [x,y]}
-    public_inputs: list[str]   # hex strings matching circuit public signal order
-    nullifier: bytes   # keccak256(proof.A.x, proof.A.y, agent_address, nonce)
+    public_inputs: list[str]   # hex strings, circuit order: [H_t, recipient, amount, slippage_bps, router_hash]
 
 
 # ---------------------------------------------------------------------------
@@ -322,22 +320,7 @@ class ProverBackend:
             proof  = json.loads(proof_file.read_text())
             public = json.loads(public_file.read_text())
 
-            # Build nullifier: keccak256(A.x || A.y)  —  full derivation in contract
-            nullifier = self._derive_nullifier(proof)
-
-            return ProofBundle(
-                proof=proof,
-                public_inputs=public,
-                nullifier=nullifier,
-            )
-
-    @staticmethod
-    def _derive_nullifier(proof: dict) -> bytes:
-        ax = int(proof["pi_a"][0])
-        ay = int(proof["pi_a"][1])
-        raw = abi_encode(["uint256", "uint256"], [ax, ay])
-        from web3 import Web3
-        return Web3.keccak(raw)
+            return ProofBundle(proof=proof, public_inputs=public)
 
 
 # ---------------------------------------------------------------------------
@@ -388,10 +371,10 @@ class VerifierContractClient:
         proof_bundle: ProofBundle,
         tx_payload:   TxPayload,
         commit_nonce: int,
-    ) -> str:
+    ) -> tuple[str, str]:
         """
         Submit verifyAndExecute() with the Groth16 proof and transaction payload.
-        Returns the settlement transaction hash.
+        Returns (settlement_tx_hash, nullifier_hex).
         """
         proof = proof_bundle.proof
         pf = {
@@ -410,9 +393,13 @@ class VerifierContractClient:
         }
 
         from web3 import Web3
-        router_hash = Web3.keccak(
-            AsyncWeb3.to_bytes(hexstr=tx_payload.router)
-        )
+
+        # router_hash MUST be the exact Poseidon(router_preimage, witness_salt)
+        # value the circuit committed to as a public input (public_inputs[4]) --
+        # recomputing it via keccak256(router) here would produce a different
+        # field element than what the proof proves, and the on-chain pairing
+        # check would reject a structurally valid proof.
+        router_hash = int(proof_bundle.public_inputs[4]).to_bytes(32, "big")
 
         payload = (
             AsyncWeb3.to_checksum_address(tx_payload.token),
@@ -423,8 +410,15 @@ class VerifierContractClient:
             tx_payload.deadline,
         )
 
+        # Nullifier must match the contract's
+        # keccak256(abi.encodePacked(proof.A.x, proof.A.y, msg.sender, commitNonce)).
+        nullifier = Web3.solidity_keccak(
+            ["uint256", "uint256", "address", "uint256"],
+            [pf["A"]["x"], pf["A"]["y"], self.agent_address, commit_nonce],
+        )
+
         tx = await self.contract.functions.verifyAndExecute(
-            pf, payload, commit_nonce, proof_bundle.nullifier
+            pf, payload, commit_nonce, nullifier
         ).build_transaction({
             "from":  self.agent_address,
             "nonce": await self.w3.eth.get_transaction_count(self.agent_address),
@@ -442,7 +436,7 @@ class VerifierContractClient:
                  token=tx_payload.token,
                  recipient=tx_payload.recipient,
                  amount=tx_payload.amount)
-        return tx_hash.hex()
+        return tx_hash.hex(), nullifier.hex()
 
 
 # ---------------------------------------------------------------------------
@@ -508,17 +502,17 @@ class AgentGuardian:
             ctx_chunks, state_chunks, input_chunks,
             tx, witness_salt
         )
-        log.info("proof_generated", nullifier=proof_bundle.nullifier.hex())
+        log.info("proof_generated", state_hash=hex(H_t))
 
         # ---- Step 6: Submit proof + payload to verifier contract ------------
-        settlement_tx = await self.verifier.verify_and_execute(
+        settlement_tx, nullifier = await self.verifier.verify_and_execute(
             proof_bundle, tx, commit_nonce
         )
 
         return {
             "status":         "verified_and_executed",
             "settlement_tx":  settlement_tx,
-            "nullifier":      proof_bundle.nullifier.hex(),
+            "nullifier":      nullifier,
             "state_hash":     hex(H_t),
         }
 

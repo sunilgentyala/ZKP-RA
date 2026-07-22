@@ -8,9 +8,11 @@ pragma solidity ^0.8.24;
  *         authorizing ERC-20 asset transfers. Implements Groth16 verification
  *         over the BN254 (alt_bn128) pairing-friendly elliptic curve.
  *
- * @dev Curve parameters: BN254 prime field
- *      p = 21888242871839275222246405745257275088548364400416034343698204186575808495617
- *      r = 21888242871839275222246405745257275088696311157297823662689037894645226208583
+ * @dev Curve parameters: BN254 (alt_bn128)
+ *      p (base field, G1/G2 coordinates) =
+ *        21888242871839275222246405745257275088696311157297823662689037894645226208583
+ *      r (scalar field, circuit witnesses) =
+ *        21888242871839275222246405745257275088548364400416034343698204186575808495617
  *
  *      Verification equation (Groth16):
  *        e(A, B) = e(alpha, beta) * e(vk_x, gamma) * e(C, delta)
@@ -38,6 +40,10 @@ library Pairing {
         uint256[2] y;
     }
 
+    // BN254 base field modulus (coordinates of G1/G2 points live in F_q).
+    // NOTE: this is NOT the same as the scalar field order r used for
+    // circuit signals/witnesses (Fr) -- they differ starting at digit 61.
+    // Verified against ffjavascript's bn128.F1.p.
     uint256 internal constant PRIME_Q =
         21888242871839275222246405745257275088696311157297823662689037894645226208583;
 
@@ -122,21 +128,22 @@ library VerificationKey {
     }
 
     /// @dev Returns the hardcoded verification key generated from the Groth16
-    ///      trusted setup ceremony for the reasoning_anchor circuit.
-    ///      REPLACE these placeholder values with the output of `snarkjs vkey`.
+    ///      trusted setup ceremony for the reasoning_anchor circuit (dev/benchmark
+    ///      ceremony; regenerate via scripts/compile_and_setup.sh before any
+    ///      production deployment and re-run a multi-party ceremony).
     function load() internal pure returns (VK memory vk) {
         vk.alpha = Pairing.G1Point(
-            0x198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2,
-            0x1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed
+            0x179d904d0ac74ea220847afa1e2bcb09de5c60397acb4e9066212af1f032f956,
+            0x13f725feceb69c51e9810d4f390fe72be0efe45ea905057729e8f085a6a84182
         );
         vk.beta = Pairing.G2Point(
             [
-                0x090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b,
-                0x12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa
+                0x11b0fa5533e09beaaf39fd412cea8bd4fbac693bf8555a669817eb0e0de14f44,
+                0x2035067530227d6c7d7dacbdd76975d58db93743c21385abe743b31655c80437
             ],
             [
-                0x260f4b27e6a16f7abe01b3b7b0abd72f32cb11e5c2c8aeaed4daf7851f56de59,
-                0x2174841e07048dd08c6a5e15ee1e39c15b43d891ea3b5aed4adc16f1426abab6
+                0xd16399a29475688e8fa2c4932f9d4edf11de5a6bab1d28bbaa40814f2bfa873,
+                0x139fcdf8079ac1caacade90c479ae7b0a544d9024e282f46e469df09042727ff
             ]
         );
         vk.gamma = Pairing.G2Point(
@@ -151,21 +158,40 @@ library VerificationKey {
         );
         vk.delta = Pairing.G2Point(
             [
-                0x260f4b27e6a16f7abe01b3b7b0abd72f32cb11e5c2c8aeaed4daf7851f56de59,
-                0x2174841e07048dd08c6a5e15ee1e39c15b43d891ea3b5aed4adc16f1426abab6
+                0xa7dadf4126e1e6325bf1f4ce967f6908b5380edde7f7fe76e1a312532f4627d,
+                0x2e9c840637ec2e99124f0d3714c9911462591aa3d40263c7ffa00317f3b7a26b
             ],
             [
-                0x198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2,
-                0x1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed
+                0x12583f541de474cf3f4c1aff7e09511e797352fd9c614a746a23da2e20b48266,
+                0x26bd1b2c9198a44dcb5c67e0fdeceee8d558bfdbdfe2175bed78abe06faca3c1
             ]
         );
-        // IC coefficients — replace with ceremony output
-        vk.IC[0] = Pairing.G1Point(0x01, 0x02);
-        vk.IC[1] = Pairing.G1Point(0x03, 0x04);
-        vk.IC[2] = Pairing.G1Point(0x05, 0x06);
-        vk.IC[3] = Pairing.G1Point(0x07, 0x08);
-        vk.IC[4] = Pairing.G1Point(0x09, 0x0a);
-        vk.IC[5] = Pairing.G1Point(0x0b, 0x0c);
+        // IC[0..5] — from the ceremony's verification_key.json (5 public inputs:
+        // H_t, tx_recipient, tx_amount, tx_slippage_bps, tx_router_hash).
+        vk.IC[0] = Pairing.G1Point(
+            0x8c29f9d0a28b9f860115c237970ba2e44110e79ee8b2b28eafc14de0cb077fc,
+            0x12d00fba6ad759b7b1ccc68c503841ce88a7d43f5f263ffce738106eb7a1f162
+        );
+        vk.IC[1] = Pairing.G1Point(
+            0x190fdc2a77c25a3d408e0596fe8b5c118f2b4fdbb5e4c06fb17897c8e4cb3482,
+            0x29d583512cb6c4fcf3182791de324ebbc464157aa9c8b49360f082eef3afe7fb
+        );
+        vk.IC[2] = Pairing.G1Point(
+            0x7bd265af10530a43b1171da7a4c1d5ff5f184cf420a8ee78280b212cd42eb5a,
+            0x1bcddfa79940a4905efdcaad420e19d806523078812482641bc3cf1d9597dd40
+        );
+        vk.IC[3] = Pairing.G1Point(
+            0x136cfde81c0528b8178679ae9e6fd4fa59c91624fac8d727645df1d93d988546,
+            0x9813bf312faf562c2cc136be1c3b164049e24c9dd36dd53a79bfb7d6ce449b1
+        );
+        vk.IC[4] = Pairing.G1Point(
+            0xb2f4fd9ce5ab32e4f7a902a34e2432a44a2973ce303625c7100e4c0f75a0955,
+            0x17ee94de00dae8ca63c7be30a5c9b5011570e469d0a7dff1af46c2c0f7e68c82
+        );
+        vk.IC[5] = Pairing.G1Point(
+            0x118004b581dd73ad64ec15c6a023b096c9cbfb466c5704d2ebbb25c769fa643e,
+            0xbea4340f4720b91b4293fa2a0840da44e2ad9e62a6343bc5d1d88647a7b632e
+        );
     }
 }
 
@@ -214,8 +240,11 @@ contract ReasoningAnchorVerifier is AccessControl, ReentrancyGuard, Pausable {
     /// @dev Tracks consumed nullifiers to prevent proof replay.
     mapping(bytes32 => bool) private _nullifiers;
 
-    /// @dev Whitelisted router addresses for DeFi protocol routing.
-    mapping(address => bool) public whitelistedRouters;
+    /// @dev Whitelisted routers, keyed by routerHash (bytes32) rather than raw
+    ///      address. The circuit's tx_router_hash public input is a hash
+    ///      commitment, not the address itself, so whitelist membership must
+    ///      be checked against that hash directly.
+    mapping(bytes32 => bool) public whitelistedRouterHashes;
 
     /// @dev Global maximum single-transaction transfer cap (in wei units).
     uint256 public maxTransferCap;
@@ -245,7 +274,7 @@ contract ReasoningAnchorVerifier is AccessControl, ReentrancyGuard, Pausable {
         address recipient,
         uint256 amount
     );
-    event RouterWhitelisted(address indexed router, bool status);
+    event RouterWhitelisted(bytes32 indexed routerHash, bool status);
     event TransferCapUpdated(uint256 oldCap, uint256 newCap);
     event CommitmentDelayUpdated(uint256 oldDelay, uint256 newDelay);
 
@@ -323,7 +352,7 @@ contract ReasoningAnchorVerifier is AccessControl, ReentrancyGuard, Pausable {
         require(!_nullifiers[nullifier], "RAV: proof replayed");
         require(tx_.amount > 0 && tx_.amount <= maxTransferCap, "RAV: amount out of bounds");
         require(tx_.maxSlippageBps <= 10_000, "RAV: slippage exceeds 100%");
-        require(whitelistedRouters[_hashToAddress(tx_.routerHash)], "RAV: router not whitelisted");
+        require(whitelistedRouterHashes[tx_.routerHash], "RAV: router not whitelisted");
 
         // ---- Retrieve committed state hash --------------------------------
         bytes32 H_t = pendingCommitments[msg.sender][commitNonce];
@@ -382,12 +411,15 @@ contract ReasoningAnchorVerifier is AccessControl, ReentrancyGuard, Pausable {
             vk_x = _pointAdd(vk_x, term);
         }
 
-        // Groth16 check: e(A, B) * e(-alpha, beta) * e(-vk_x, gamma) * e(-C, delta) = 1
+        // Groth16 check, rearranged to a single product-of-pairings equal to 1:
+        //   e(A,B) = e(alpha,beta) * e(vk_x,gamma) * e(C,delta)
+        //   <=>  e(-A,B) * e(alpha,beta) * e(vk_x,gamma) * e(C,delta) = 1
+        // Only A is negated; vk_x and C are not.
         return Pairing.pairingProd4(
-            Pairing.negate(proof.A),  vk.beta,
+            Pairing.negate(proof.A),  proof.B,
             vk.alpha,                  vk.beta,
-            Pairing.negate(vk_x),     vk.gamma,
-            Pairing.negate(proof.C),  vk.delta
+            vk_x,                      vk.gamma,
+            proof.C,                   vk.delta
         );
     }
 
@@ -419,26 +451,21 @@ contract ReasoningAnchorVerifier is AccessControl, ReentrancyGuard, Pausable {
         r = Pairing.G1Point(result[0], result[1]);
     }
 
-    /// @dev Reverse-maps a bytes32 routerHash back to an address for whitelist lookup.
-    ///      The circuit commits keccak256(abi.encodePacked(routerAddress)).
-    function _hashToAddress(bytes32 h) internal view returns (address) {
-        // The whitelist maps router => keccak256(router), so we check membership
-        // by iterating is not gas-efficient; instead the routerHash IS the key.
-        // Whitelist stored as hash => bool for O(1) lookup.
-        return address(uint160(uint256(h)));
-    }
-
     // ------------------------------------------------------------------
     // Admin: Router Whitelist Management
     // ------------------------------------------------------------------
 
-    function setRouterWhitelist(address router, bool status)
+    /// @notice Whitelist a router by its commitment hash. The agent's circuit
+    ///         proves knowledge of a preimage (router address/salt) hashing to
+    ///         this same value as a public input; the guardian whitelists the
+    ///         hash directly so no on-chain reverse mapping is required.
+    function setRouterWhitelist(bytes32 routerHash, bool status)
         external
         onlyRole(GUARDIAN_ROLE)
     {
-        require(router != address(0), "RAV: zero router");
-        whitelistedRouters[router] = status;
-        emit RouterWhitelisted(router, status);
+        require(routerHash != bytes32(0), "RAV: zero router hash");
+        whitelistedRouterHashes[routerHash] = status;
+        emit RouterWhitelisted(routerHash, status);
     }
 
     function updateMaxTransferCap(uint256 newCap)

@@ -39,19 +39,19 @@ include "node_modules/circomlib/circuits/mimcsponge.circom";
 
 // Context window chunk count (each chunk is a field element representing
 // a 248-bit packed segment of the tokenized context vector).
-var N_CTX    = 8;
+function nCtx() { return 8; }
 
 // State vector chunk count (embedding-space compressed representation of
 // the agent's persistent memory, e.g., averaged RAG retrieval).
-var N_STATE  = 8;
+function nState() { return 8; }
 
 // Input chunk count (oracle feed snapshot, packed as field elements).
-var N_INPUT  = 4;
+function nInput() { return 4; }
 
 // Policy enforcement constants (mirror on-chain contract values).
 // Expressed as field elements. Slippage is in basis points (1 bps = 0.01%).
-var MAX_AMOUNT_HI    = 1000000000000000000000; // 1000 tokens (18 decimals)
-var MAX_SLIPPAGE_BPS = 200;                     // 2% maximum slippage
+function maxAmountHi() { return 1000000000000000000000; } // 1000 tokens (18 decimals)
+function maxSlippageBps() { return 200; }                  // 2% maximum slippage
 
 // ---------------------------------------------------------------------------
 // Template: RangeCheck
@@ -127,19 +127,19 @@ template PoseidonChunked(N, D) {
 // ---------------------------------------------------------------------------
 
 template StateCommitment() {
-    signal input ctx[N_CTX];
-    signal input state[N_STATE];
-    signal input inp[N_INPUT];
+    signal input ctx[nCtx()];
+    signal input state[nState()];
+    signal input inp[nInput()];
     signal output H_t;
 
     // Hash each memory region independently with its domain tag.
-    component ctx_hash   = PoseidonChunked(N_CTX,   1);
-    component state_hash = PoseidonChunked(N_STATE,  2);
-    component inp_hash   = PoseidonChunked(N_INPUT,  3);
+    component ctx_hash   = PoseidonChunked(nCtx(),   1);
+    component state_hash = PoseidonChunked(nState(),  2);
+    component inp_hash   = PoseidonChunked(nInput(),  3);
 
-    for (var i = 0; i < N_CTX;   i++) ctx_hash.chunks[i]   <== ctx[i];
-    for (var i = 0; i < N_STATE; i++) state_hash.chunks[i] <== state[i];
-    for (var i = 0; i < N_INPUT; i++) inp_hash.chunks[i]   <== inp[i];
+    for (var i = 0; i < nCtx();   i++) ctx_hash.chunks[i]   <== ctx[i];
+    for (var i = 0; i < nState(); i++) state_hash.chunks[i] <== state[i];
+    for (var i = 0; i < nInput(); i++) inp_hash.chunks[i]   <== inp[i];
 
     // Combine three region hashes into root commitment.
     component root = Poseidon(3);
@@ -175,11 +175,11 @@ template PolicyEngine() {
     // Bound checks
     component amtCheck = LessOrEqualBounded(252);
     amtCheck.in    <== tx_amount;
-    amtCheck.bound <== MAX_AMOUNT_HI;
+    amtCheck.bound <== maxAmountHi();
 
     component slipCheck = LessOrEqualBounded(14); // 14 bits covers 0..16383 bps
     slipCheck.in    <== tx_slippage_bps;
-    slipCheck.bound <== MAX_SLIPPAGE_BPS;
+    slipCheck.bound <== maxSlippageBps();
 
     // Router whitelist membership proof: prove knowledge of preimage s.t.
     // Poseidon(router_preimage, witness_salt) == tx_router_hash (public).
@@ -209,9 +209,9 @@ template ReasoningAnchor() {
     signal input tx_router_hash;    // Poseidon(router, salt)
 
     // ---- Private witness signals -------------------------------------------
-    signal input ctx[N_CTX];        // context window chunks
-    signal input state[N_STATE];    // state vector chunks
-    signal input inp[N_INPUT];      // oracle input chunks
+    signal input ctx[nCtx()];        // context window chunks
+    signal input state[nState()];    // state vector chunks
+    signal input inp[nInput()];      // oracle input chunks
     signal input router_preimage;   // router address
     signal input witness_salt;      // proving-time random salt
 
@@ -220,9 +220,9 @@ template ReasoningAnchor() {
     //   to the on-chain commitment H_t. A cheating agent that mutated its memory
     //   post-commitment cannot satisfy this constraint.
     component sc = StateCommitment();
-    for (var i = 0; i < N_CTX;   i++) sc.ctx[i]   <== ctx[i];
-    for (var i = 0; i < N_STATE; i++) sc.state[i] <== state[i];
-    for (var i = 0; i < N_INPUT; i++) sc.inp[i]   <== inp[i];
+    for (var i = 0; i < nCtx();   i++) sc.ctx[i]   <== ctx[i];
+    for (var i = 0; i < nState(); i++) sc.state[i] <== state[i];
+    for (var i = 0; i < nInput(); i++) sc.inp[i]   <== inp[i];
 
     // Enforce equality with the public commitment: sc.H_t === H_t.
     sc.H_t === H_t;

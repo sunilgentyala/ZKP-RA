@@ -23,7 +23,7 @@ $$\pi \leftarrow \text{Prove}(\text{pk},\; (H_t, T_x),\; (X_t, S_t, I_t, r, \sig
 
 3. **On-Chain Settlement** — The smart contract verifies $\pi$ and executes the ERC-20 transfer atomically. Any transaction arising from poisoned inputs fails the pairing check and is rejected.
 
-**Key metrics:** 182 ms proof generation (rapidsnark), ~276,200 gas on-chain verification, ~3,800 R1CS constraints — a **9.7× gas reduction** versus full zkML inference verification.
+**Key metrics (measured end-to-end, real trusted setup + real on-chain deployment — see [Verification Notes](#verification-notes)):** 224 ms median proof generation (SnarkJS WASM, 20-trial), 405,659 gas total on-chain settlement (commitState + verifyAndExecute), 7,449 R1CS constraints.
 
 ---
 
@@ -40,7 +40,7 @@ ZKP-RA/
 ├── scripts/
 │   └── compile_and_setup.sh        # Circuit compile + Phase 2 trusted setup automation
 ├── test/
-│   └── Verifier.test.ts            # Hardhat integration tests
+│   └── Verifier.test.js            # Hardhat integration tests (11 passing, incl. a real Groth16 proof)
 ├── package.json
 └── requirements.txt
 ```
@@ -101,7 +101,7 @@ ZKP-RA/
 | Context chunks $N_X$ | 8 field elements |
 | State chunks $N_S$ | 8 field elements |
 | Input chunks $N_I$ | 4 field elements |
-| Total R1CS constraints | ~3,800 |
+| Total R1CS constraints | 7,449 (measured; see below) |
 | Public inputs | $H_t$, recipient, amount, slippage\_bps, routerHash |
 
 ---
@@ -110,10 +110,10 @@ ZKP-RA/
 
 | Tool | Version |
 |---|---|
-| Node.js | 20+ |
-| Circom | 2.1.6 |
+| Node.js | 20+ (tested on 24) |
+| Circom | 2.1.6+ (tested against 2.1.6 and 2.2.3) |
 | SnarkJS | 0.7.4 |
-| rapidsnark (optional) | 0.0.1 |
+| rapidsnark (optional, native prover) | 0.0.1 |
 | Python | 3.10+ |
 | Hardhat | 2.22+ |
 
@@ -121,6 +121,10 @@ ZKP-RA/
 npm install
 pip install -r requirements.txt
 ```
+
+Circom itself is not an npm package; download a platform binary from the
+[circom releases page](https://github.com/iden3/circom/releases) and place it
+on your `PATH` (or point `scripts/compile_and_setup.sh` at it directly).
 
 ---
 
@@ -136,11 +140,17 @@ This downloads the Hermez BN128 Phase 1 powers-of-tau file, compiles the circuit
 
 ### 2. Update verification key in the contract
 
-After setup, replace the placeholder IC values in `contracts/Verifier.sol` with the output of:
-
-```bash
-snarkjs vkey --verificationkey build/verification_key.json
-```
+After setup, extract the hex-encoded VK constants from `build/verification_key.json`
+and update `VerificationKey.load()` in `contracts/Verifier.sol`. Watch for two
+easy-to-miss conventions when transcribing: (a) the base field modulus `q` used
+for point negation is `...696311157297823662689037894645226208583`, not the
+scalar field `r` used for circuit witnesses — they're both BN254-flavored
+78-digit numbers and easy to swap; (b) each G2 point's two field-extension
+coefficients must be written in *reversed* order relative to the raw JSON
+(`x[0] = json_x[1]`, `x[1] = json_x[0]`, and likewise for `y`) to match the
+EIP-197 pairing precompile's expected input layout. `scripts/benchmark/measure_gas.cjs`
+does this conversion programmatically and is the fastest way to sanity-check
+a new ceremony end-to-end before hand-editing the contract.
 
 ### 3. Compile and deploy contracts
 
@@ -179,17 +189,21 @@ npx hardhat coverage
 
 ---
 
-## Gas Costs (EVM, Istanbul opcodes)
+## Gas Costs
 
-| Operation | Gas |
+Measured via `npm run benchmark:gas` (Hardhat local network, a real Groth16
+proof against the dev ceremony's verification key, full `commitState` →
+`verifyAndExecute` flow including the ERC-20 transfer):
+
+| Call | Gas (measured) |
 |---|---|
-| BN254 pairing — EIP-197 (4 pairs) | 180,000 |
-| Scalar multiplication — EIP-196 (5×) | 30,000 |
-| Point addition — EIP-196 (4×) | 2,000 |
-| Storage reads (commitment + nullifier) | 4,200 |
-| ERC-20 safeTransfer | 35,000 |
-| Calldata + event emission | 25,000 |
-| **Total** | **276,200** |
+| `commitState` | 73,022 |
+| `verifyAndExecute` (pairing check + policy checks + ERC-20 transfer) | 332,637 |
+| **Total per settled transaction** | **405,659** |
+
+This is an aggregate on-chain measurement, not a hand-derived per-opcode
+estimate — run `npm run benchmark:gas` yourself to reproduce it or profile a
+finer breakdown with `hardhat-gas-reporter`.
 
 ---
 
@@ -205,12 +219,18 @@ npx hardhat coverage
 
 ## Proof Generation Benchmarks
 
-| Backend | Witness | Prove | Total |
-|---|---|---|---|
-| SnarkJS (WASM) | 38 ms | 1,164 ms | 1,202 ms |
-| rapidsnark (native C++) | 12 ms | 170 ms | **182 ms** |
+Measured via `npm run benchmark:input && npm run benchmark:proof`
+(20-trial `snarkjs.groth16.fullProve`, witness generation + proving combined):
 
-Benchmarked on AMD EPYC 9354, 128 GB DDR5, Ubuntu 22.04.
+| Backend | Median | Min | Max |
+|---|---|---|---|
+| SnarkJS (WASM) | 224 ms | 201 ms | 423 ms |
+| rapidsnark (native C++) | not benchmarked in this repo | — | — |
+
+Benchmarked on an AMD Ryzen AI 7 350 (16 threads), Node.js v24.16.0, Windows.
+rapidsnark requires a native C++ build toolchain not exercised here; expect a
+meaningful additional speedup consistent with published rapidsnark vs. SnarkJS-WASM
+comparisons, but treat any specific number as unverified until benchmarked directly.
 
 ---
 
@@ -221,16 +241,52 @@ Benchmarked on AMD EPYC 9354, 128 GB DDR5, Ubuntu 22.04.
 3. L. Grassi et al., "Poseidon Hash," USENIX Security 2021. [usenix.org](https://www.usenix.org/conference/usenixsecurity21/presentation/grassi)
 4. K. Greshake et al., "Indirect Prompt Injection," AISec@CCS 2023. DOI: [10.1145/3605764.3623985](https://doi.org/10.1145/3605764.3623985)
 5. S. Lee et al., "vCNN," IEEE TDSC 2024. DOI: [10.1109/TDSC.2023.3348760](https://doi.org/10.1109/TDSC.2023.3348760)
-6. VeriLLM, arXiv:2509.24257. DOI: [10.48550/arXiv.2509.24257](https://doi.org/10.48550/arXiv.2509.24257)
+6. K. Wang et al., "VeriLLM: A Lightweight Framework for Publicly Verifiable Decentralized Inference," arXiv:2509.24257, 2025. DOI: [10.48550/arXiv.2509.24257](https://doi.org/10.48550/arXiv.2509.24257)
 7. L. Zhou et al., "SoK: DeFi Attacks," IEEE S&P 2023. DOI: [10.1109/SP46215.2023.10179435](https://doi.org/10.1109/SP46215.2023.10179435)
-8. Z. Zou et al., "PoisonedRAG," arXiv:2402.07867. DOI: [10.48550/arXiv.2402.07867](https://doi.org/10.48550/arXiv.2402.07867)
+8. W. Zou, R. Geng, B. Wang, and J. Jia, "PoisonedRAG," arXiv:2402.07867, 2024. DOI: [10.48550/arXiv.2402.07867](https://doi.org/10.48550/arXiv.2402.07867)
 9. A. Gabizon et al., "PLONK," IACR ePrint 2019/953. [eprint.iacr.org](https://eprint.iacr.org/2019/953)
 10. Z. Peng et al., "ZK Survey," AI Review 2026. DOI: [10.1007/s10462-026-11557-y](https://doi.org/10.1007/s10462-026-11557-y)
-11. DeFiTrace, ACM TOPS 2024. DOI: [10.1145/3817054](https://doi.org/10.1145/3817054)
+11. M. Pratiwi and Y.-H. Choi, "DeFiTrace," ACM Trans. Privacy and Security, vol. 29, no. 3, 2026. DOI: [10.1145/3817054](https://doi.org/10.1145/3817054)
 12. E. Ben-Sasson et al., "STARKs," IACR ePrint 2018/046. [eprint.iacr.org](https://eprint.iacr.org/2018/046)
-13. M.M. Karim et al., "AI Agents Meet Blockchain," Future Internet 2025. DOI: [10.3390/fi17020057](https://doi.org/10.3390/fi17020057)
-14. SoK: AI Agents for Blockchain, arXiv:2509.07131. DOI: [10.48550/arXiv.2509.07131](https://doi.org/10.48550/arXiv.2509.07131)
-15. Y. Xie et al., "DeFort," ISSTA 2024. DOI: [10.1145/3650212.3652137](https://doi.org/10.1145/3650212.3652137)
+13. N. Romandini, C. Mazzocca, K. Otsuki, and R. Montanari, "SoK: Security and Privacy of AI Agents for Blockchain," arXiv:2509.07131, accepted BCCA 2025. DOI: [10.48550/arXiv.2509.07131](https://doi.org/10.48550/arXiv.2509.07131)
+14. Y. Xie et al., "DeFort," ISSTA 2024. DOI: [10.1145/3650212.3652137](https://doi.org/10.1145/3650212.3652137)
+15. S.K. Mudusu and S. Gentyala, "Zero-Trust Data Pipelines for AI Systems: A Framework for Secure, Verifiable, and Auditable Data Engineering," JRTCSE, vol. 14, no. 2.2, 2026. DOI: [10.70589/JRTCSE.2026.14.2.2](https://doi.org/10.70589/JRTCSE.2026.14.2.2)
+
+---
+
+## Verification Notes
+
+This repository was end-to-end verified (circuit compiled, real trusted setup
+run, a real proof generated and checked both off-chain and on-chain, full
+Hardhat test suite passing) as part of preparing the companion manuscript.
+That pass found and fixed several bugs that meant nothing here had actually
+been compiled or run before:
+
+- The circuit used a top-level `var` declaration pattern invalid in circom
+  2.x; it had never successfully compiled. Fixed by moving the constants into
+  `function`s.
+- The on-chain pairing check used `vk.beta` instead of `proof.B` in one term
+  of the Groth16 equation — the proof's own B point was never actually
+  checked. Fixed.
+- The pairing equation negated `vk_x` and `proof.C` in addition to `proof.A`;
+  only `proof.A` should be negated. Fixed.
+- The router whitelist stored entries by address but looked them up via a
+  bytes32→address reinterpretation that could never match a real address;
+  separately, the circuit commits the router via Poseidon while the contract
+  expected keccak256. Unified to a single hash-keyed whitelist.
+- `VerificationKey.load()` held literal placeholder values. Replaced with a
+  real ceremony's output (dev/benchmark ceremony — regenerate before any
+  production deployment).
+- The Python agent's `verify_and_execute` recomputed the router hash via
+  keccak256 while the proof committed to a Poseidon-based value, and its
+  nullifier derivation hashed only 2 of the 4 required fields. Both fixed.
+- No `hardhat.config`, no `MockERC20` contract, and no `tsconfig.json`
+  existed, so nothing could have been compiled or tested as shipped. Added.
+
+All numbers reported above and in the companion paper are real measurements
+taken after these fixes, not estimates. Reproduce them with
+`npm run benchmark:input && npm run benchmark:proof` (proof generation) and
+`npm run benchmark:gas` (on-chain settlement cost).
 
 ---
 
