@@ -172,6 +172,17 @@ template PolicyEngine() {
     signal input router_preimage;  // private: actual router address as field element
     signal input witness_salt;     // private: random nonce drawn at proving time
 
+    // Range checks: LessEqThan's internal (1<<n) - based subtraction is only
+    // sound if its inputs already fit in n bits. Without this, an adversarial
+    // field element close to the BN254 modulus can wrap around the subtraction
+    // and force a false "in <= bound" result. These checks must run before the
+    // bound comparisons below.
+    component amtRange = RangeCheck(252);
+    amtRange.in <== tx_amount;
+
+    component slipRange = RangeCheck(14); // 14 bits covers 0..16383 bps
+    slipRange.in <== tx_slippage_bps;
+
     // Bound checks
     component amtCheck = LessOrEqualBounded(252);
     amtCheck.in    <== tx_amount;
