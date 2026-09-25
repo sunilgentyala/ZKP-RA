@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+message: If you use this software in your research, please cite it as below.
+type: software
+title: 'ZKP-RA: Zero-Knowledge Proof Reasoning Anchors'
+authors:
+- family-names: Gentyala
+  given-names: Sunil
+  affiliation: HCLTech (HCL America Inc.), Dallas, TX, USA
+  orcid: https://orcid.org/0009-0005-2642-3479
+  email: sunil.gentyala@ieee.org
+repository-code: https://github.com/sunilgentyala/ZKP-RA
+url: https://sunilgentyala.github.io/ZKP-RA/
+license: MIT
+abstract: 'ZKP-RA: Zero-Knowledge Proof Reasoning Anchors for mitigating memory poisoning
+  in autonomous agentic DeFi: Groth16 zk-SNARKs, Circom circuits, on-chain Solidity verifier,
+  Python agent guardian. 182ms proofs, 9.7x gas reduction vs zkML.'
+keywords:
+- agentic-ai
+- blockchain
+- circom
+- defi
+- ethereum
+- groth16
+- llm-security
+- memory-poisoning
+- solidity
+- zero-knowledge-proofs

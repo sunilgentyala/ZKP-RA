@@ -297,6 +297,23 @@ IEEE Senior Member · sunil.gentyala@ieee.org · [github.com/sunilgentyala](http
 
 ---
 
+## How to Cite
+
+The companion paper is under review. Until it is published, please cite the software:
+
+```bibtex
+@software{gentyala2026zkpra,
+  author    = {Gentyala, Sunil},
+  title     = {ZKP-RA: Zero-Knowledge Proof Reasoning Anchors},
+  year      = {2026},
+  url       = {https://github.com/sunilgentyala/ZKP-RA}
+}
+```
+
+Machine-readable metadata is in [`CITATION.cff`](CITATION.cff); GitHub shows it under "Cite this repository".
+
+---
+
 ## License
 
 MIT License. See [LICENSE](LICENSE) for details.
