@@ -23,7 +23,7 @@ $$\pi \leftarrow \text{Prove}(\text{pk},\; (H_t, T_x),\; (X_t, S_t, I_t, r, \sig
 
 3. **On-Chain Settlement** — The smart contract verifies $\pi$ and executes the ERC-20 transfer atomically. Any transaction arising from poisoned inputs fails the pairing check and is rejected.
 
-**Key metrics (measured end-to-end, real trusted setup + real on-chain deployment — see [Verification Notes](#verification-notes)):** 224 ms median proof generation (SnarkJS WASM, 20-trial), 405,659 gas total on-chain settlement (commitState + verifyAndExecute), 7,449 R1CS constraints.
+**Key metrics (measured end-to-end, real trusted setup + real on-chain deployment — see [Verification Notes](#verification-notes)):** 250 ms median proof generation (SnarkJS WASM, 100 trials), 405,659 gas total on-chain settlement (commitState + verifyAndExecute), 7,449 R1CS constraints.
 
 ---
 
@@ -219,11 +219,24 @@ finer breakdown with `hardhat-gas-reporter`.
 
 ## Proof Generation Benchmarks
 
-Measured via `npm run benchmark:input && npm run benchmark:proof`
-(20-trial `snarkjs.groth16.fullProve`, witness generation + proving combined):
+Original 20-trial run (`npm run benchmark:input && npm run benchmark:proof`): median 224 ms, min 201 ms, max 423 ms.
 
-| Backend | Median | Min | Max |
-|---|---|---|---|
+Re-measured 2026-10-18 with 100 `snarkjs.groth16.fullProve` trials per circuit (witness generation + proving combined, own single-contributor 2^15 ptau, nothing else running):
+
+| Circuit | Chunks | Constraints | Median | p95 | p99 | Min | Max |
+|---|---|---|---|---|---|---|---|
+| Commit 168237f (paper) | 20 | 7,449 | 250 ms | 324 ms | 349 ms | 225 ms | 542 ms |
+| HEAD (with range checks, 3335767) | 20 | 7,717 | 253 ms | 283 ms | 298 ms | 228 ms | 317 ms |
+| 2x chunks | 40 | 13,499 | 439 ms | 524 ms | 564 ms | 402 ms | 582 ms |
+| 4x chunks | 80 | 25,599 | 721 ms | 814 ms | 932 ms | 677 ms | 973 ms |
+
+The circuit commits a fixed 20 chunks of 31 bytes (8 context, 8 state, 4 oracle input), not an entire context window; cost grows linearly with chunk count (about 302 constraints per added chunk). The 2x/4x circuits are the same template with `nCtx()/nState()/nInput()` scaled. Scripts: `scripts/benchmark/scale_bench.cjs`, results in `scripts/benchmark/results/`.
+
+Tamper checks (`scripts/benchmark/tamper_test.cjs`, log in `results/`): changing any one of the 5 public inputs or the proof point A makes verification fail; poisoning a context, state or input chunk, or exceeding the amount cap, makes proof generation fail.
+
+rapidsnark (native C++) was not benchmarked; no claim is made about its speed.
+
+---|---|---|---|
 | SnarkJS (WASM) | 224 ms | 201 ms | 423 ms |
 | rapidsnark (native C++) | not benchmarked in this repo | — | — |
 

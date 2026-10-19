@@ -1,0 +1,58 @@
+[
+ {
+  "name": "paper-circuit (168237f)",
+  "k": 1,
+  "constraints": 7449,
+  "chunks": 20,
+  "trials": 100,
+  "median": 249.89995,
+  "min": 225.399,
+  "max": 542.3369,
+  "p95": 324.236,
+  "p99": 349.3937,
+  "verifies": true,
+  "poisonRejected": true
+ },
+ {
+  "name": "HEAD circuit (range checks)",
+  "k": 1,
+  "constraints": 7717,
+  "chunks": 20,
+  "trials": 100,
+  "median": 252.51495,
+  "min": 227.6371,
+  "max": 317.041,
+  "p95": 283.1691,
+  "p99": 298.3948,
+  "verifies": true,
+  "poisonRejected": true
+ },
+ {
+  "name": "paper-circuit 2x",
+  "k": 2,
+  "constraints": 13499,
+  "chunks": 40,
+  "trials": 100,
+  "median": 439.11235,
+  "min": 401.7953,
+  "max": 582.3769,
+  "p95": 524.4345,
+  "p99": 563.852,
+  "verifies": true,
+  "poisonRejected": true
+ },
+ {
+  "name": "paper-circuit 4x",
+  "k": 4,
+  "constraints": 25599,
+  "chunks": 80,
+  "trials": 100,
+  "median": 720.6714,
+  "min": 677.155,
+  "max": 973.1801,
+  "p95": 814.0579,
+  "p99": 931.5958,
+  "verifies": true,
+  "poisonRejected": true
+ }
+]
