@@ -232,7 +232,7 @@ Re-measured 2026-10-18 with 100 `snarkjs.groth16.fullProve` trials per circuit (
 
 The circuit commits a fixed 20 chunks of 31 bytes (8 context, 8 state, 4 oracle input), not an entire context window; cost grows linearly with chunk count (about 302 constraints per added chunk). The 2x/4x circuits are the same template with `nCtx()/nState()/nInput()` scaled. Scripts: `scripts/benchmark/scale_bench.cjs`, results in `scripts/benchmark/results/`.
 
-Tamper checks (`scripts/benchmark/tamper_test.cjs`, log in `results/`): changing any one of the 5 public inputs or the proof point A makes verification fail; poisoning a context, state or input chunk, or exceeding the amount cap, makes proof generation fail.
+Tamper checks (`scripts/benchmark/tamper_test.cjs`, output in `results/`): changing any one of the 5 public inputs or the proof point A makes verification fail; poisoning a context, state or input chunk, or exceeding the amount cap, makes proof generation fail.
 
 rapidsnark (native C++) was not benchmarked; no claim is made about its speed.
 

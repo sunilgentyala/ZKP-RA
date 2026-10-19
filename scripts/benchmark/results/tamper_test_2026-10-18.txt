@@ -1,0 +1,22 @@
+honest verifies: true
+public signal order: 5
+tampered public input 0 verifies: false
+tampered public input 1 verifies: false
+tampered public input 2 verifies: false
+tampered public input 3 verifies: false
+tampered public input 4 verifies: false
+tampered proof point A verifies: false
+ERROR:  4 Error in template ReasoningAnchor_154 line: 228
+
+poisoned ctx chunk -> proof generation refused: true
+ERROR:  4 Error in template ReasoningAnchor_154 line: 228
+
+poisoned state chunk -> proof generation refused: true
+ERROR:  4 Error in template ReasoningAnchor_154 line: 228
+
+poisoned inp chunk -> proof generation refused: true
+ERROR:  4 Error in template LessOrEqualBounded_77 line: 79
+Error in template PolicyEngine_152 line: 178
+Error in template ReasoningAnchor_154 line: 237
+
+amount above policy cap -> proof generation refused: true
