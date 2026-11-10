@@ -15,15 +15,15 @@ Autonomous LLM agents that execute high-value transactions in DeFi protocols fac
 
 ZKP-RA addresses this by inserting a **Reasoning Anchor** into every agent-to-chain settlement path:
 
-1. **State Commitment** — Before reasoning, the agent commits a Poseidon hash of its context window $X_t$, state vector $S_t$, and oracle inputs $I_t$ to an on-chain contract:
-$$H_t = \text{Poseidon}(X_t,\, S_t,\, I_t)$$
+1. **State Commitment.** Before the agent starts reasoning, it commits a salted Poseidon hash of its context window $X_t$, state vector $S_t$ and oracle inputs $I_t$ to an on-chain contract. The salt $\rho$ is private:
+$$H_t = \text{Poseidon}(H_{ctx},\, H_{state},\, H_{inp},\, \rho)$$
 
-2. **Verifiable Inference** — After producing a transaction payload $T_x$, the agent generates a Groth16 zk-SNARK (over BN254) proving that $T_x$ was derived from inputs that hash to $H_t$ and satisfy the safety policy $C$ (amount bounds, slippage limits, router whitelist):
-$$\pi \leftarrow \text{Prove}(\text{pk},\; (H_t, T_x),\; (X_t, S_t, I_t, r, \sigma))$$
+2. **Proof of policy and state.** After forming a transaction payload $T_x$, the agent generates a Groth16 zk-SNARK (over BN254) proving that it still holds the state behind $H_t$ and that $T_x$ satisfies the safety policy $C$ (amount bound, slippage limit, router hash). Recipient, token and deadline are bound to the proof as public inputs:
+$$\pi \leftarrow \text{Prove}(\text{pk},\; (H_t, T_x),\; (X_t, S_t, I_t, \rho, r, \sigma))$$
 
-3. **On-Chain Settlement** — The smart contract verifies $\pi$ and executes the ERC-20 transfer atomically. Any transaction arising from poisoned inputs fails the pairing check and is rejected.
+3. **On-chain settlement.** The smart contract checks that the commitment is old enough, verifies $\pi$ and executes the ERC-20 transfer atomically. If the agent's memory changed after the commitment, no valid proof exists and the payment cannot settle.
 
-**Key metrics (measured end-to-end, real trusted setup + real on-chain deployment — see [Verification Notes](#verification-notes)):** 250 ms median proof generation (SnarkJS WASM, 100 trials), 405,659 gas total on-chain settlement (commitState + verifyAndExecute), 7,449 R1CS constraints.
+**Key metrics (measured on a local Hardhat network with the final circuit, see [Verification Notes](#verification-notes)):** 363 ms median proof generation (SnarkJS WASM, 100 trials, laptop not idle), 446,008 gas for a settled payment (95,197 commitState + 350,811 verifyAndExecute), 8,238 R1CS constraints, 24 passing tests.
 
 ---
 
@@ -34,13 +34,17 @@ ZKP-RA/
 ├── circuits/
 │   └── reasoning_anchor.circom     # Groth16 circuit: Poseidon state commitment + policy engine
 ├── contracts/
-│   └── Verifier.sol                # On-chain Groth16 verifier + ERC-20 settlement
+│   ├── Verifier.sol                # On-chain Groth16 verifier + ERC-20 settlement
+│   └── baseline/SimpleGuard.sol    # Rule-only guard (no proof), used as the comparison baseline
 ├── src/
 │   └── agent_guardian.py           # Async Python daemon: intercepts tool calls, drives prover
 ├── scripts/
-│   └── compile_and_setup.sh        # Circuit compile + Phase 2 trusted setup automation
+│   ├── compile_and_setup.sh        # Circuit compile + dev trusted setup (3 contributions + beacon)
+│   ├── export_vk_solidity.cjs      # snarkjs verification key -> Solidity constants
+│   ├── demo.cjs                    # Five-scenario demo (npx hardhat run scripts/demo.cjs)
+│   └── benchmark/                  # input generator, fixture maker, bench, gas, scaling, tamper tests
 ├── test/
-│   └── Verifier.test.js            # Hardhat integration tests (11 passing, incl. a real Groth16 proof)
+│   └── Verifier.test.js            # Hardhat integration tests (24 passing, incl. a real Groth16 proof; fixture in test/fixtures)
 ├── package.json
 └── requirements.txt
 ```
@@ -76,7 +80,7 @@ ZKP-RA/
 │  1. Load Ht from pendingCommitments[agent][nonce]            │
 │  2. Groth16 pairing check: e(A,B) = e(α,β)·e(vkx,γ)·e(C,δ) │
 │  3. Enforce: amount ≤ cap, slippage ≤ 200 bps, router ∈ W   │
-│  4. Mark nullifier ν (replay protection)                     │
+│  4. Mark nullifier keccak256(agent, nonce) (replay guard)    │
 │  5. ERC-20 safeTransfer to recipient                         │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -87,11 +91,12 @@ ZKP-RA/
 
 `circuits/reasoning_anchor.circom` arithmetizes the following statement in R1CS over the BN254 scalar field:
 
-> *"I know private witnesses $(X_t, S_t, I_t, r, \sigma)$ such that:*
-> *(1) $\text{Poseidon}(X_t \| S_t \| I_t) = H_t$*
+> *"I know private witnesses $(X_t, S_t, I_t, \rho, r, \sigma)$ such that:*
+> *(1) $\text{Poseidon}(H_{ctx}, H_{state}, H_{inp}, \rho) = H_t$ (salted commitment)*
 > *(2) $T_x.\texttt{amount} \leq \text{MAX\_AMOUNT}$*
 > *(3) $T_x.\texttt{slippage\_bps} \leq 200$*
-> *(4) $\text{Poseidon}(r, \sigma) = T_x.\texttt{routerHash}$"*
+> *(4) $\text{Poseidon}(r, \sigma) = T_x.\texttt{routerHash}$*
+> *(5) recipient, token and deadline are range checked, so the proof is bound to them."*
 
 | Parameter | Value |
 |---|---|
@@ -101,8 +106,8 @@ ZKP-RA/
 | Context chunks $N_X$ | 8 field elements |
 | State chunks $N_S$ | 8 field elements |
 | Input chunks $N_I$ | 4 field elements |
-| Total R1CS constraints | 7,449 (measured; see below) |
-| Public inputs | $H_t$, recipient, amount, slippage\_bps, routerHash |
+| Total R1CS constraints | 8,238 (measured) |
+| Public inputs | $H_t$, recipient, amount, slippage\_bps, routerHash, token, deadline (7) |
 
 ---
 
@@ -136,7 +141,7 @@ on your `PATH` (or point `scripts/compile_and_setup.sh` at it directly).
 bash scripts/compile_and_setup.sh
 ```
 
-This downloads the Hermez BN128 Phase 1 powers-of-tau file, compiles the circuit to R1CS + WASM, runs the Phase 2 Groth16 setup, and exports the verification key.
+This generates a local development Phase 1 file, compiles the circuit to R1CS + WASM, runs three Phase 2 contributions plus a beacon, exports the verification key, and writes the Solidity constants to `build/vk_body.txt`. It is a development ceremony, not a production one.
 
 ### 2. Update verification key in the contract
 
@@ -144,13 +149,12 @@ After setup, extract the hex-encoded VK constants from `build/verification_key.j
 and update `VerificationKey.load()` in `contracts/Verifier.sol`. Watch for two
 easy-to-miss conventions when transcribing: (a) the base field modulus `q` used
 for point negation is `...696311157297823662689037894645226208583`, not the
-scalar field `r` used for circuit witnesses — they're both BN254-flavored
+scalar field `r` used for circuit witnesses, they're both BN254-flavored
 78-digit numbers and easy to swap; (b) each G2 point's two field-extension
 coefficients must be written in *reversed* order relative to the raw JSON
 (`x[0] = json_x[1]`, `x[1] = json_x[0]`, and likewise for `y`) to match the
-EIP-197 pairing precompile's expected input layout. `scripts/benchmark/measure_gas.cjs`
-does this conversion programmatically and is the fastest way to sanity-check
-a new ceremony end-to-end before hand-editing the contract.
+EIP-197 pairing precompile's expected input layout. `scripts/export_vk_solidity.cjs`
+does this conversion programmatically (compile_and_setup.sh runs it for you).
 
 ### 3. Compile and deploy contracts
 
@@ -197,12 +201,13 @@ proof against the dev ceremony's verification key, full `commitState` →
 
 | Call | Gas (measured) |
 |---|---|
-| `commitState` | 73,022 |
-| `verifyAndExecute` (pairing check + policy checks + ERC-20 transfer) | 332,637 |
-| **Total per settled transaction** | **405,659** |
+| `commitState` | 95,197 |
+| `verifyAndExecute` (pairing check + policy checks + ERC-20 transfer) | 350,811 |
+| `SimpleGuard.execute` (rule-only baseline, no proof) | 45,654 |
+| **Total per settled transaction (ZKP-RA)** | **446,008** |
 
 This is an aggregate on-chain measurement, not a hand-derived per-opcode
-estimate — run `npm run benchmark:gas` yourself to reproduce it or profile a
+estimate, run `npm run benchmark:gas` yourself to reproduce it or profile a
 finer breakdown with `hardhat-gas-reporter`.
 
 ---
@@ -213,37 +218,30 @@ finer breakdown with `hardhat-gas-reporter`.
 |---|---|
 | **Completeness** | An honest agent with valid witnesses always produces an accepted proof |
 | **Soundness** | Under $q$-SDH on BN254 and Poseidon collision resistance, no adversary can pass a poisoned-input transaction |
-| **Zero-Knowledge** | The proof reveals nothing about $X_t$, $S_t$, $I_t$, the router address, or the proving salt |
+| **Zero-Knowledge** | The proof reveals nothing about $X_t$, $S_t$, $I_t$, the router address, or the salts |
+
+**Scope.** ZKP-RA defends against tampering with the agent's memory or oracle inputs *after* the commitment is on-chain. Poisoning that happens *before* the commitment produces a valid proof and is out of scope; it needs provenance checks or filtering of ingested data. The proof shows that the agent knew the committed state and that the payment satisfies the policy; it does not show that the model derived the payment from that state.
 
 ---
 
 ## Proof Generation Benchmarks
 
-Original 20-trial run (`npm run benchmark:input && npm run benchmark:proof`): median 224 ms, min 201 ms, max 423 ms.
+Measured 2026-11-10 on the final circuit (7 public inputs, salted commitment), 100 `snarkjs.groth16.fullProve` trials after one warm-up, witness generation and proving combined, AMD Ryzen AI 7 350, Node.js v24.16.0. The laptop was not idle during the runs, so treat the figures as indicative.
 
-Re-measured 2026-10-18 with 100 `snarkjs.groth16.fullProve` trials per circuit (witness generation + proving combined, own single-contributor 2^15 ptau, nothing else running):
-
-| Circuit | Chunks | Constraints | Median | p95 | p99 | Min | Max |
+| Run | Chunks | Constraints | Median | p95 | p99 | Min | Max |
 |---|---|---|---|---|---|---|---|
-| Commit 168237f (paper) | 20 | 7,449 | 250 ms | 324 ms | 349 ms | 225 ms | 542 ms |
-| HEAD (with range checks, 3335767) | 20 | 7,717 | 253 ms | 283 ms | 298 ms | 228 ms | 317 ms |
-| 2x chunks | 40 | 13,499 | 439 ms | 524 ms | 564 ms | 402 ms | 582 ms |
-| 4x chunks | 80 | 25,599 | 721 ms | 814 ms | 932 ms | 677 ms | 973 ms |
+| Final circuit (`bench.cjs`) | 20 | 8,238 | 363 ms | 477 ms | 538 ms | 299 ms | 559 ms |
+| Scaling, 1x (`scale_bench.cjs`) | 20 | 8,238 | 436 ms | 540 ms | 575 ms | 361 ms | 709 ms |
+| Scaling, 2x chunks | 40 | 14,288 | 569 ms | 692 ms | 729 ms | 453 ms | 749 ms |
+| Scaling, 4x chunks | 80 | 26,388 | 919 ms | 1,219 ms | 1,422 ms | 777 ms | 1,504 ms |
 
-The circuit commits a fixed 20 chunks of 31 bytes (8 context, 8 state, 4 oracle input), not an entire context window; cost grows linearly with chunk count (about 302 constraints per added chunk). The 2x/4x circuits are the same template with `nCtx()/nState()/nInput()` scaled. Scripts: `scripts/benchmark/scale_bench.cjs`, results in `scripts/benchmark/results/`.
+The scaling runs happened while other work was running on the machine, which is why their 1x row is slower than the dedicated `bench.cjs` run; compare the scaling rows with each other, not with the first row. Each scaling circuit uses its own locally generated 2^15 Phase 1 file and one Phase 2 contribution.
 
-Tamper checks (`scripts/benchmark/tamper_test.cjs`, output in `results/`): changing any one of the 5 public inputs or the proof point A makes verification fail; poisoning a context, state or input chunk, or exceeding the amount cap, makes proof generation fail.
+The circuit commits a fixed 20 chunks of 31 bytes (8 context, 8 state, 4 oracle input), not an entire context window. Cost grows with chunk count (about 300 constraints per added chunk). Raw results are in `scripts/benchmark/results/`.
+
+Tamper checks (`scripts/benchmark/tamper_test.cjs`, output in `results/`): changing any one of the 7 public inputs or the proof point A makes verification fail; poisoning a context, state or input chunk, using a wrong commitment salt, exceeding the amount or slippage cap, or passing an out-of-range token or deadline makes proof generation fail.
 
 rapidsnark (native C++) was not benchmarked; no claim is made about its speed.
-
----|---|---|---|
-| SnarkJS (WASM) | 224 ms | 201 ms | 423 ms |
-| rapidsnark (native C++) | not benchmarked in this repo | — | — |
-
-Benchmarked on an AMD Ryzen AI 7 350 (16 threads), Node.js v24.16.0, Windows.
-rapidsnark requires a native C++ build toolchain not exercised here; expect a
-meaningful additional speedup consistent with published rapidsnark vs. SnarkJS-WASM
-comparisons, but treat any specific number as unverified until benchmarked directly.
 
 ---
 
@@ -279,7 +277,7 @@ been compiled or run before:
   2.x; it had never successfully compiled. Fixed by moving the constants into
   `function`s.
 - The on-chain pairing check used `vk.beta` instead of `proof.B` in one term
-  of the Groth16 equation — the proof's own B point was never actually
+  of the Groth16 equation, the proof's own B point was never actually
   checked. Fixed.
 - The pairing equation negated `vk_x` and `proof.C` in addition to `proof.A`;
   only `proof.A` should be negated. Fixed.
@@ -288,7 +286,7 @@ been compiled or run before:
   separately, the circuit commits the router via Poseidon while the contract
   expected keccak256. Unified to a single hash-keyed whitelist.
 - `VerificationKey.load()` held literal placeholder values. Replaced with a
-  real ceremony's output (dev/benchmark ceremony — regenerate before any
+  real ceremony's output (dev/benchmark ceremony, regenerate before any
   production deployment).
 - The Python agent's `verify_and_execute` recomputed the router hash via
   keccak256 while the proof committed to a Poseidon-based value, and its
@@ -296,16 +294,28 @@ been compiled or run before:
 - No `hardhat.config`, no `MockERC20` contract, and no `tsconfig.json`
   existed, so nothing could have been compiled or tested as shipped. Added.
 
+### Second review round (November 2026)
+
+Reviewer feedback on an earlier version led to these changes, each covered by a test:
+
+- **commitmentDelay is enforced on-chain.** `commitState` now stores the block number, and `verifyAndExecute` reverts with `commitment too recent` before the delay has passed.
+- **Salted commitment.** `H_t = Poseidon(H_ctx, H_state, H_inp, salt)` with a private salt, so a low-entropy context cannot be guessed from the public hash.
+- **Token and deadline are public inputs** (now 7 in total), and recipient, token and deadline are range checked in the circuit, so a proof cannot be reused with a different token, deadline or recipient.
+- **Proof-independent nullifier.** The nullifier is `keccak256(agent, nonce)`, so a modified or re-randomized proof cannot produce a new one. Public inputs must also be below the BN254 scalar field order.
+- **Baseline.** `contracts/baseline/SimpleGuard.sol` enforces the same plain rules (cap, whitelist, deadline) without a proof. It accepts a payment produced by a tampered agent, which ZKP-RA refuses.
+- **Setup.** The development ceremony now has three Phase 2 contributions and a beacon. It is still a development ceremony and not a production one.
+- **Not done:** native rapidsnark benchmark, a live agent or real attack campaign, and a production multi-party ceremony. The Python agent daemon was updated to match the circuit but was not run in this release.
+
 All numbers reported above and in the companion paper are real measurements
 taken after these fixes, not estimates. Reproduce them with
-`npm run benchmark:input && npm run benchmark:proof` (proof generation) and
-`npm run benchmark:gas` (on-chain settlement cost).
+`npm run benchmark:input && npm run benchmark:proof` (proof generation),
+`npm run benchmark:gas` (on-chain settlement cost) and `npx hardhat run scripts/demo.cjs` (the five-scenario demo).
 
 ---
 
 ## Author
 
-**Sunil Gentyala** — Lead Cybersecurity and AI Security Consultant, HCL America Inc.
+**Sunil Gentyala**, Lead Cybersecurity and AI Security Consultant, HCL America Inc.
 IEEE Senior Member · sunil.gentyala@ieee.org · [github.com/sunilgentyala](https://github.com/sunilgentyala)
 
 ---

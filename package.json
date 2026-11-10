@@ -11,7 +11,11 @@
     "lint": "eslint . --ext .ts && solhint 'contracts/**/*.sol'",
     "benchmark:input": "node scripts/benchmark/gen_input.cjs",
     "benchmark:proof": "node scripts/benchmark/bench.cjs",
-    "benchmark:gas": "hardhat run scripts/benchmark/measure_gas.cjs"
+    "benchmark:gas": "hardhat run scripts/benchmark/measure_gas.cjs",
+    "demo": "hardhat run scripts/demo.cjs",
+    "benchmark:fixture": "node scripts/benchmark/make_fixture.cjs",
+    "benchmark:scale": "node scripts/benchmark/scale_bench.cjs scale_work",
+    "benchmark:tamper": "node scripts/benchmark/tamper_test.cjs"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.0",
@@ -20,6 +24,7 @@
     "@openzeppelin/contracts": "^5.0.2",
     "@typechain/hardhat": "^9.0.0",
     "chai": "^4.4.1",
+    "circomlibjs": "^0.1.7",
     "ethers": "^6.11.0",
     "hardhat": "^2.22.0",
     "hardhat-gas-reporter": "^1.0.9",

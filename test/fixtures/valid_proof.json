@@ -1,0 +1,40 @@
+{
+  "proof": {
+    "A": {
+      "x": "0x106eda8eea9b3a333dcb0b45199eb6fdb9be4c1e5f6d7f613aa16f9ba40503f1",
+      "y": "0xaa19449fc683a43aa9e818e5b58ae474b9d1dab5bfd2e14f3559ddfe85a5542"
+    },
+    "B": {
+      "x": [
+        "0x11afbd47eb79bbb8f40dec8b1ccfb71fa267923ac602d70305e9ef28b8429668",
+        "0x812a88724465530eeab6afbbaf639125942503df0ae6055d890901e0722a3a6"
+      ],
+      "y": [
+        "0x16c8c54f39344c981d4b2c1f0ba600f6e307e4c6a4db40ab06b55ac6e058f351",
+        "0x128fb91253ecb0a3c15840d49f97b1c7ac67d59203236ca7bee4b39ba38f27b2"
+      ]
+    },
+    "C": {
+      "x": "0x2bd4fbefe11c4393bfef5b04f89c0930adf8e029dc09848ada8b2ca91d7b3606",
+      "y": "0x2fbc2aad44ad425c29e331557dd3e37edb33ab5be8c8012f0cc52e2aafe5ed2c"
+    }
+  },
+  "publicSignals": [
+    "0x1d27a74c65ff16ec634d2cb4c14ef9244f4135333261e19b418a3a1d7d4a9c0a",
+    "0x3e7",
+    "0x1b1ae4d6e2ef500000",
+    "0x32",
+    "0x1914879b2a4e7f9555f3eb55837243cefb1366a692794a7e5b5b3181fb14b49b",
+    "0x7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a",
+    "0xf4865700"
+  ],
+  "order": [
+    "H_t",
+    "tx_recipient",
+    "tx_amount",
+    "tx_slippage_bps",
+    "tx_router_hash",
+    "tx_token",
+    "tx_deadline"
+  ]
+}

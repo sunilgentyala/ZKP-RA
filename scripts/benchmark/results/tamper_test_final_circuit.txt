@@ -1,0 +1,47 @@
+honest proof verifies: true
+public signals: 7
+tampered public input 0 (H_t) verifies: false
+tampered public input 1 (tx_recipient) verifies: false
+tampered public input 2 (tx_amount) verifies: false
+tampered public input 3 (tx_slippage_bps) verifies: false
+tampered public input 4 (tx_router_hash) verifies: false
+tampered public input 5 (tx_token) verifies: false
+tampered public input 6 (tx_deadline) verifies: false
+tampered proof point A verifies: false
+ERROR:  4 Error in template ReasoningAnchor_233 line: 249
+
+poisoned ctx chunk -> proof generation refused: true
+ERROR:  4 Error in template ReasoningAnchor_233 line: 249
+
+poisoned state chunk -> proof generation refused: true
+ERROR:  4 Error in template ReasoningAnchor_233 line: 249
+
+poisoned inp chunk -> proof generation refused: true
+ERROR:  4 Error in template ReasoningAnchor_233 line: 249
+
+wrong commitment salt -> proof generation refused: true
+ERROR:  4 Error in template LessOrEqualBounded_154 line: 80
+Error in template PolicyEngine_229 line: 193
+Error in template ReasoningAnchor_233 line: 258
+
+amount above policy cap -> proof generation refused: true
+ERROR:  4 Error in template LessOrEqualBounded_158 line: 80
+Error in template PolicyEngine_229 line: 197
+Error in template ReasoningAnchor_233 line: 258
+
+slippage above policy cap -> proof generation refused: true
+ERROR:  4 Error in template PolicyEngine_229 line: 204
+Error in template ReasoningAnchor_233 line: 258
+
+non-whitelisted router preimage -> proof generation refused: true
+ERROR:  4 Error in template ReasoningAnchor_233 line: 264
+
+zero recipient -> proof generation refused: true
+ERROR:  4 Error in template Num2Bits_231 line: 38
+Error in template ReasoningAnchor_233 line: 274
+
+token outside 160 bits -> proof generation refused: true
+ERROR:  4 Error in template Num2Bits_232 line: 38
+Error in template ReasoningAnchor_233 line: 276
+
+deadline outside 64 bits -> proof generation refused: true

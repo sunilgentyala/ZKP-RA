@@ -92,6 +92,13 @@ try:
     def poseidon2(a: int, b: int) -> int:
         return _poseidon_t3.run_hash([a, b])
 
+    # t=5 instance for the four-input root hash (circomlib Poseidon(4)).
+    _poseidon_t5 = Poseidon(p=FIELD_MODULUS, security_level=128, alpha=5,
+                             input_rate=4, t=5)
+
+    def poseidon4(a: int, b: int, c: int, d: int) -> int:
+        return _poseidon_t5.run_hash([a, b, c, d])
+
 except ImportError:
     # Fallback: naive reference using MiMC-style compression (NOT production-safe).
     # Replace with proper Poseidon bindings before deployment.
@@ -109,6 +116,13 @@ except ImportError:
         raw = hashlib.sha256(
             (a).to_bytes(32, "big") +
             (b).to_bytes(32, "big")
+        ).digest()
+        return int.from_bytes(raw, "big") % FIELD_MODULUS
+
+    def poseidon4(a: int, b: int, c: int, d: int) -> int:
+        raw = hashlib.sha256(
+            a.to_bytes(32, "big") + b.to_bytes(32, "big") +
+            c.to_bytes(32, "big") + d.to_bytes(32, "big")
         ).digest()
         return int.from_bytes(raw, "big") % FIELD_MODULUS
 
@@ -155,15 +169,18 @@ def compute_state_hash(
     ctx_chunks:   list[int],
     state_chunks: list[int],
     input_chunks: list[int],
+    commit_salt:  int,
 ) -> int:
     """
-    Compute H_t = Poseidon(Poseidon_CTX(X_t), Poseidon_STATE(S_t), Poseidon_INPUT(I_t)).
+    Compute H_t = Poseidon(H_ctx, H_state, H_input, commit_salt).
+    commit_salt is a fresh random field element kept private by the agent. It blinds
+    the commitment so a low-entropy context cannot be guessed from the public H_t.
     Must produce identical output to the StateCommitment circuit template.
     """
     h_ctx   = poseidon_chunked(ctx_chunks,   DOMAIN_CTX)
     h_state = poseidon_chunked(state_chunks, DOMAIN_STATE)
     h_input = poseidon_chunked(input_chunks, DOMAIN_INPUT)
-    return poseidon3(h_ctx, h_state, h_input)
+    return poseidon4(h_ctx, h_state, h_input, commit_salt)
 
 # ---------------------------------------------------------------------------
 # Data models
@@ -240,6 +257,7 @@ class ProverBackend:
         input_chunks:  list[int],
         tx_payload:    TxPayload,
         witness_salt:  int,
+        commit_salt:   int,
     ) -> ProofBundle:
         """
         Build the witness JSON, invoke the prover, and return a ProofBundle.
@@ -247,7 +265,7 @@ class ProverBackend:
         """
         router_addr_int = int(tx_payload.router, 16)
         router_hash     = poseidon2(router_addr_int, witness_salt)
-        H_t             = compute_state_hash(ctx_chunks, state_chunks, input_chunks)
+        H_t             = compute_state_hash(ctx_chunks, state_chunks, input_chunks, commit_salt)
         recipient_int   = int(tx_payload.recipient, 16)
 
         input_json = {
@@ -257,12 +275,15 @@ class ProverBackend:
             "tx_amount":        str(tx_payload.amount),
             "tx_slippage_bps":  str(tx_payload.max_slippage_bps),
             "tx_router_hash":   str(router_hash),
+            "tx_token":         str(int(tx_payload.token, 16)),
+            "tx_deadline":      str(tx_payload.deadline),
             # Private witnesses
             "ctx":              [str(x) for x in ctx_chunks],
             "state":            [str(x) for x in state_chunks],
             "inp":              [str(x) for x in input_chunks],
             "router_preimage":  str(router_addr_int),
             "witness_salt":     str(witness_salt),
+            "commit_salt":      str(commit_salt),
         }
 
         return await asyncio.get_event_loop().run_in_executor(
@@ -410,15 +431,16 @@ class VerifierContractClient:
             tx_payload.deadline,
         )
 
-        # Nullifier must match the contract's
-        # keccak256(abi.encodePacked(proof.A.x, proof.A.y, msg.sender, commitNonce)).
+        # The contract derives the nullifier as keccak256(abi.encodePacked(msg.sender,
+        # commitNonce)); it does not depend on the proof points. Computed here only
+        # so the caller can log it.
         nullifier = Web3.solidity_keccak(
-            ["uint256", "uint256", "address", "uint256"],
-            [pf["A"]["x"], pf["A"]["y"], self.agent_address, commit_nonce],
+            ["address", "uint256"],
+            [self.agent_address, commit_nonce],
         )
 
         tx = await self.contract.functions.verifyAndExecute(
-            pf, payload, commit_nonce, nullifier
+            pf, payload, commit_nonce
         ).build_transaction({
             "from":  self.agent_address,
             "nonce": await self.w3.eth.get_transaction_count(self.agent_address),
@@ -489,8 +511,10 @@ class AgentGuardian:
         input_raw    = json.dumps(agent_state.oracle_inputs).encode()
         input_chunks = pack_bytes_to_field_elements(input_raw,               N_INPUT)
 
-        # ---- Step 3: Compute H_t --------------------------------------------
-        H_t = compute_state_hash(ctx_chunks, state_chunks, input_chunks)
+        # ---- Step 3: Compute H_t (salted) ------------------------------------
+        # The salt is drawn before the commitment and reused in the proof.
+        commit_salt = secrets.randbits(248) % FIELD_MODULUS
+        H_t = compute_state_hash(ctx_chunks, state_chunks, input_chunks, commit_salt)
         log.info("state_hash_computed", H_t=hex(H_t))
 
         # ---- Step 4: Commit H_t on-chain ------------------------------------
@@ -500,7 +524,7 @@ class AgentGuardian:
         witness_salt = secrets.randbits(248) % FIELD_MODULUS
         proof_bundle = await self.prover.generate_proof(
             ctx_chunks, state_chunks, input_chunks,
-            tx, witness_salt
+            tx, witness_salt, commit_salt
         )
         log.info("proof_generated", state_hash=hex(H_t))
 

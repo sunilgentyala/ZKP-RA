@@ -9,15 +9,16 @@ pragma circom 2.1.6;
  * scalar field Fr (order r = 21888242871839275222246405745257275088696311157297823662689037894645226208583):
  *
  *   "I know private witnesses (X_t, S_t, I_t, w) such that:
- *    (1) Poseidon(X_t || S_t || I_t) == H_t            [state integrity]
+ *    (1) Poseidon(H_ctx, H_state, H_inp, commit_salt) == H_t  [salted state integrity]
  *    (2) C(X_t, S_t, I_t, w) = T_x                     [deterministic policy]
  *    (3) T_x.amount <= MAX_AMOUNT                        [value bound]
  *    (4) T_x.slippage_bps <= MAX_SLIPPAGE_BPS            [slippage bound]
  *    (5) Poseidon(T_x.router) is in ROUTER_WHITELIST     [whitelist membership]"
  *
- * Public inputs:  H_t, tx_recipient, tx_amount, tx_slippage_bps, tx_router_hash
+ * Public inputs:  H_t, tx_recipient, tx_amount, tx_slippage_bps, tx_router_hash,
+ *                 tx_token, tx_deadline
  * Private inputs: context_chunks[N_CTX], state_chunks[N_STATE], input_chunks[N_INPUT],
- *                 witness_salt, router_preimage
+ *                 commit_salt, witness_salt, router_preimage
  *
  * Constraint counts (estimated, pre-optimization):
  *   Poseidon(t=3) adds ~240 constraints per invocation.
@@ -130,6 +131,8 @@ template StateCommitment() {
     signal input ctx[nCtx()];
     signal input state[nState()];
     signal input inp[nInput()];
+    signal input commit_salt;   // private blinding factor: stops guessing low-entropy
+                                // contexts from the public commitment H_t
     signal output H_t;
 
     // Hash each memory region independently with its domain tag.
@@ -142,10 +145,11 @@ template StateCommitment() {
     for (var i = 0; i < nInput(); i++) inp_hash.chunks[i]   <== inp[i];
 
     // Combine three region hashes into root commitment.
-    component root = Poseidon(3);
+    component root = Poseidon(4);
     root.inputs[0] <== ctx_hash.hash;
     root.inputs[1] <== state_hash.hash;
     root.inputs[2] <== inp_hash.hash;
+    root.inputs[3] <== commit_salt;
 
     H_t <== root.out;
 }
@@ -209,6 +213,8 @@ template PolicyEngine() {
 //     [2] tx_amount
 //     [3] tx_slippage_bps
 //     [4] tx_router_hash
+//     [5] tx_token
+//     [6] tx_deadline
 // ---------------------------------------------------------------------------
 
 template ReasoningAnchor() {
@@ -218,6 +224,8 @@ template ReasoningAnchor() {
     signal input tx_amount;         // transfer amount
     signal input tx_slippage_bps;   // max slippage in basis points
     signal input tx_router_hash;    // Poseidon(router, salt)
+    signal input tx_token;          // ERC-20 contract address (uint160 -> Fr)
+    signal input tx_deadline;       // Unix timestamp bound into the proof
 
     // ---- Private witness signals -------------------------------------------
     signal input ctx[nCtx()];        // context window chunks
@@ -225,6 +233,7 @@ template ReasoningAnchor() {
     signal input inp[nInput()];      // oracle input chunks
     signal input router_preimage;   // router address
     signal input witness_salt;      // proving-time random salt
+    signal input commit_salt;       // blinding factor of the state commitment
 
     // ---- Constraint 1: State Integrity  ------------------------------------
     //   Verify that the agent's declared private memory (X_t, S_t, I_t) hashes
@@ -234,6 +243,7 @@ template ReasoningAnchor() {
     for (var i = 0; i < nCtx();   i++) sc.ctx[i]   <== ctx[i];
     for (var i = 0; i < nState(); i++) sc.state[i] <== state[i];
     for (var i = 0; i < nInput(); i++) sc.inp[i]   <== inp[i];
+    sc.commit_salt <== commit_salt;
 
     // Enforce equality with the public commitment: sc.H_t === H_t.
     sc.H_t === H_t;
@@ -252,8 +262,28 @@ template ReasoningAnchor() {
     component recipientCheck = IsZero();
     recipientCheck.in <== tx_recipient;
     recipientCheck.out === 0;
+
+    // ---- Constraint 4: Bind recipient, token and deadline to the proof ----
+    //   A public input that appears in no constraint is not bound by Groth16:
+    //   a verifier would accept any value for it. Range-checking each value
+    //   to its natural width ties it to the proof, so a proof cannot be
+    //   replayed against a different token contract, recipient or deadline.
+    component recipientBits = Num2Bits(160);
+    recipientBits.in <== tx_recipient;
+    component tokenBits = Num2Bits(160);
+    tokenBits.in <== tx_token;
+    component deadlineBits = Num2Bits(64);
+    deadlineBits.in <== tx_deadline;
+
+    // Quadratic constraints so the signals are also used in R1CS products.
+    signal tokenSq;
+    tokenSq <== tx_token * tx_token;
+    signal deadlineSq;
+    deadlineSq <== tx_deadline * tx_deadline;
+    signal recipientSq;
+    recipientSq <== tx_recipient * tx_recipient;
 }
 
 // Entry point instantiation
-component main {public [H_t, tx_recipient, tx_amount, tx_slippage_bps, tx_router_hash]}
+component main {public [H_t, tx_recipient, tx_amount, tx_slippage_bps, tx_router_hash, tx_token, tx_deadline]}
     = ReasoningAnchor();

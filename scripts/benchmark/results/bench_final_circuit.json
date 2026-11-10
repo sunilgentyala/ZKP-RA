@@ -1,0 +1,12 @@
+{
+  "date": "2026-11-10",
+  "trials": 100,
+  "cpu": "AMD Ryzen AI 7 350 w/ Radeon 860M               x 16",
+  "node": "v24.16.0",
+  "median_ms": 363.2,
+  "min_ms": 298.7,
+  "max_ms": 559.4,
+  "p95_ms": 477,
+  "p99_ms": 537.5,
+  "verifies": true
+}

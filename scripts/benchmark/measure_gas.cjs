@@ -1,90 +1,55 @@
+// Measures on-chain gas for ZKP-RA (commitState + verifyAndExecute) and the SimpleGuard baseline.
+// Run: npx hardhat run scripts/benchmark/measure_gas.cjs
 const hre = require("hardhat");
 const fs = require("fs");
+const fixture = JSON.parse(fs.readFileSync("test/fixtures/valid_proof.json", "utf8"));
+const { ethers } = hre;
 
-function hex(d) {
-  return "0x" + BigInt(d).toString(16);
+async function etchToken(addr, holder) {
+  const F = await ethers.getContractFactory("MockERC20");
+  const tmp = await F.deploy("TestToken", "TT");
+  await tmp.waitForDeployment();
+  await hre.network.provider.send("hardhat_setCode", [addr, await ethers.provider.getCode(await tmp.getAddress())]);
+  const t = await ethers.getContractAt("MockERC20", addr);
+  await t.mint(holder, ethers.parseEther("1000000"));
+  return t;
 }
 
 async function main() {
-  const proof = JSON.parse(fs.readFileSync("build/proof.json", "utf8"));
-  const pub = JSON.parse(fs.readFileSync("build/public.json", "utf8"));
-  const [H_t, tx_recipient, tx_amount, tx_slippage_bps, tx_router_hash] = pub;
+  const [H, REC, AMT, SLIP, ROUTER, TOK, DL] = fixture.publicSignals;
+  const tokenAddr = ethers.getAddress("0x" + BigInt(TOK).toString(16).padStart(40, "0"));
+  const recipient = ethers.getAddress("0x" + BigInt(REC).toString(16).padStart(40, "0"));
+  const routerHash = ethers.zeroPadValue(ROUTER, 32);
+  const [, agent, guardian] = await ethers.getSigners();
 
-  const [owner, agentSigner, guardianSigner] = await hre.ethers.getSigners();
+  const V = await ethers.getContractFactory("ReasoningAnchorVerifier");
+  const v = await V.deploy(ethers.parseEther("1000000"), 0);
+  await v.waitForDeployment();
+  const token = await etchToken(tokenAddr, await v.getAddress());
+  await v.grantRole(await v.AGENT_ROLE(), agent.address);
+  await v.grantRole(await v.GUARDIAN_ROLE(), guardian.address);
+  await v.connect(guardian).setRouterWhitelist(routerHash, true);
 
-  const Token = await hre.ethers.getContractFactory("MockERC20");
-  const token = await Token.deploy("TestToken", "TT");
-  await token.waitForDeployment();
+  const c = await (await v.connect(agent).commitState(ethers.zeroPadValue(H, 32))).wait();
+  const payload = { token: tokenAddr, recipient, amount: BigInt(AMT), maxSlippageBps: BigInt(SLIP), routerHash, deadline: BigInt(DL) };
+  const r = await (await v.connect(agent).verifyAndExecute(fixture.proof, payload, 0n)).wait();
 
-  const Verifier = await hre.ethers.getContractFactory("ReasoningAnchorVerifier");
-  const verifier = await Verifier.deploy(
-    hre.ethers.parseEther("1000000"), // maxTransferCap
-    0 // commitmentDelay
-  );
-  await verifier.waitForDeployment();
+  const G = await ethers.getContractFactory("SimpleGuard");
+  const g = await G.deploy(ethers.parseEther("1000000"));
+  await g.waitForDeployment();
+  await g.grantRole(await g.AGENT_ROLE(), agent.address);
+  await g.setRouterWhitelist(routerHash, true);
+  await token.mint(await g.getAddress(), ethers.parseEther("1000"));
+  const b = await (await g.connect(agent).execute(tokenAddr, recipient, BigInt(AMT), 50, routerHash, BigInt(DL))).wait();
 
-  await token.mint(await verifier.getAddress(), hre.ethers.parseEther("1000000"));
-
-  const AGENT_ROLE = await verifier.AGENT_ROLE();
-  const GUARDIAN_ROLE = await verifier.GUARDIAN_ROLE();
-  await verifier.grantRole(AGENT_ROLE, agentSigner.address);
-  await verifier.grantRole(GUARDIAN_ROLE, guardianSigner.address);
-
-  const routerHashBytes32 = hex(tx_router_hash);
-  await verifier.connect(guardianSigner).setRouterWhitelist(routerHashBytes32, true);
-
-  // ---- Phase 1: commitState ----
-  const commitTx = await verifier.connect(agentSigner).commitState(hex(H_t));
-  const commitReceipt = await commitTx.wait();
-  const commitNonce = 0n;
-
-  // The proof's public input for tx_recipient is the fixed test value 999
-  // (see build/gen_input.cjs). The contract recomputes pubInputs[1] as
-  // uint256(uint160(tx_.recipient)) and feeds it into the same pairing
-  // check, so the payload's recipient address must equal address(999) for
-  // the SNARK's committed public input to match what the contract derives.
-  const recipientAddr = hre.ethers.getAddress(
-    "0x" + (999).toString(16).padStart(40, "0")
-  );
-
-  const payload = {
-    token: await token.getAddress(),
-    recipient: recipientAddr,
-    amount: BigInt(tx_amount),
-    maxSlippageBps: BigInt(tx_slippage_bps),
-    routerHash: routerHashBytes32,
-    deadline: Math.floor(Date.now() / 1000) + 3600,
-  };
-
-  const solProof = {
-    A: { x: hex(proof.pi_a[0]), y: hex(proof.pi_a[1]) },
-    B: {
-      x: [hex(proof.pi_b[0][1]), hex(proof.pi_b[0][0])],
-      y: [hex(proof.pi_b[1][1]), hex(proof.pi_b[1][0])],
-    },
-    C: { x: hex(proof.pi_c[0]), y: hex(proof.pi_c[1]) },
-  };
-
-  const nullifier = hre.ethers.solidityPackedKeccak256(
-    ["uint256", "uint256", "address", "uint256"],
-    [solProof.A.x, solProof.A.y, agentSigner.address, commitNonce]
-  );
-
-  const tx = await verifier
-    .connect(agentSigner)
-    .verifyAndExecute(solProof, payload, commitNonce, nullifier);
-  const receipt = await tx.wait();
-
-  console.log("=== REAL ON-CHAIN MEASUREMENT ===");
-  console.log("commitState gas:", commitReceipt.gasUsed.toString());
-  console.log("verifyAndExecute gas:", receipt.gasUsed.toString());
-  console.log("status:", receipt.status === 1 ? "SUCCESS" : "FAILED");
-
-  const bal = await token.balanceOf(recipientAddr);
-  console.log("recipient balance after transfer:", bal.toString());
+  console.log("=== ON-CHAIN GAS (local Hardhat network, final circuit) ===");
+  console.log("ZKP-RA commitState gas:        ", c.gasUsed.toString());
+  console.log("ZKP-RA verifyAndExecute gas:   ", r.gasUsed.toString());
+  console.log("ZKP-RA total gas:              ", (c.gasUsed + r.gasUsed).toString());
+  console.log("SimpleGuard execute gas:       ", b.gasUsed.toString());
+  console.log("recipient balance:", (await token.balanceOf(recipient)).toString());
+  const out = { date: new Date().toISOString().slice(0, 10), commitState: Number(c.gasUsed), verifyAndExecute: Number(r.gasUsed), total: Number(c.gasUsed + r.gasUsed), simpleGuard: Number(b.gasUsed) };
+  fs.mkdirSync("scripts/benchmark/results", { recursive: true });
+  fs.writeFileSync("scripts/benchmark/results/gas_final_circuit.json", JSON.stringify(out, null, 2));
 }
-
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+main().catch((e) => { console.error(e); process.exit(1); });

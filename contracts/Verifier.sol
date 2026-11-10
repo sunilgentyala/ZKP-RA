@@ -124,7 +124,7 @@ library VerificationKey {
         //   IC[3] -> tx_amount
         //   IC[4] -> tx_max_slippage_bps
         //   IC[5] -> tx_router_whitelist_hash
-        Pairing.G1Point[6] IC;
+        Pairing.G1Point[8] IC;
     }
 
     /// @dev Returns the hardcoded verification key generated from the Groth16
@@ -152,45 +152,51 @@ library VerificationKey {
                 0x1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed
             ],
             [
-                0x090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b,
+                0x90689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b,
                 0x12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa
             ]
         );
         vk.delta = Pairing.G2Point(
             [
-                0xa7dadf4126e1e6325bf1f4ce967f6908b5380edde7f7fe76e1a312532f4627d,
-                0x2e9c840637ec2e99124f0d3714c9911462591aa3d40263c7ffa00317f3b7a26b
+                0xaeadf474f7c5298d036a67c035993f697a5d1779bbf0f8d6daa37c16002f2c9,
+                0x2934bbc36192b5110fac85c929621cbcafc3944b0f7f3682ed6b1e72b4e45bcb
             ],
             [
-                0x12583f541de474cf3f4c1aff7e09511e797352fd9c614a746a23da2e20b48266,
-                0x26bd1b2c9198a44dcb5c67e0fdeceee8d558bfdbdfe2175bed78abe06faca3c1
+                0x8957eaa29702412978de3abd25daf23f77d915f123d8acb1747de08a59cfb89,
+                0x4e67810afbefc8c3cf97bd4657f62f5b728fd4afc06eb391eee767cfe5ceca
             ]
         );
-        // IC[0..5] — from the ceremony's verification_key.json (5 public inputs:
-        // H_t, tx_recipient, tx_amount, tx_slippage_bps, tx_router_hash).
         vk.IC[0] = Pairing.G1Point(
-            0x8c29f9d0a28b9f860115c237970ba2e44110e79ee8b2b28eafc14de0cb077fc,
-            0x12d00fba6ad759b7b1ccc68c503841ce88a7d43f5f263ffce738106eb7a1f162
+            0x99818db69594776d623e097f3afe64f423664f1366e8dc44c952c07a3511cf0,
+            0x2bdccada45b8e694e654b089a242289be11b00521dc2d97a5f4d07985fee9403
         );
         vk.IC[1] = Pairing.G1Point(
-            0x190fdc2a77c25a3d408e0596fe8b5c118f2b4fdbb5e4c06fb17897c8e4cb3482,
-            0x29d583512cb6c4fcf3182791de324ebbc464157aa9c8b49360f082eef3afe7fb
+            0x1b141eaa36d26063554ca8f8799a945676a21e774a296672b92efc567f14f4ae,
+            0x29e36bcb619f9364808307cf51b32637f08abc99ef38595f232ae7afbe550800
         );
         vk.IC[2] = Pairing.G1Point(
-            0x7bd265af10530a43b1171da7a4c1d5ff5f184cf420a8ee78280b212cd42eb5a,
-            0x1bcddfa79940a4905efdcaad420e19d806523078812482641bc3cf1d9597dd40
+            0x14e31af73730b6d4855962c24cd984f95eb9b2f419757207a5647289717f8b95,
+            0x2a333311f81b18f8f3c04166f144fe4a8006e9944c81309b29a9e8309176e6f0
         );
         vk.IC[3] = Pairing.G1Point(
-            0x136cfde81c0528b8178679ae9e6fd4fa59c91624fac8d727645df1d93d988546,
-            0x9813bf312faf562c2cc136be1c3b164049e24c9dd36dd53a79bfb7d6ce449b1
+            0x2d487497beaca62de8e5f96ad6065524936e95eb34ae92b0e5567b53bcd71bfe,
+            0x2b1c45cb4dc6d08fb565c2418678d7f4cca4341939046f3a20492b74d7fc775b
         );
         vk.IC[4] = Pairing.G1Point(
-            0xb2f4fd9ce5ab32e4f7a902a34e2432a44a2973ce303625c7100e4c0f75a0955,
-            0x17ee94de00dae8ca63c7be30a5c9b5011570e469d0a7dff1af46c2c0f7e68c82
+            0x29b6a802e346f39e8432e96b912a848405862f683dda116edee993a8548e3952,
+            0x8c3af4ed46b51060fb3e44e8f94d3dc6960387adc2dff40dc1c914f29e70c45
         );
         vk.IC[5] = Pairing.G1Point(
-            0x118004b581dd73ad64ec15c6a023b096c9cbfb466c5704d2ebbb25c769fa643e,
-            0xbea4340f4720b91b4293fa2a0840da44e2ad9e62a6343bc5d1d88647a7b632e
+            0xe1692b0b668541bf937e5dc03d84022d34cf77a91079ecff15843f9bc56510e,
+            0x828a735495f79a7d8ed0b39af352eda4d838444115f336a9370313ff15b010f
+        );
+        vk.IC[6] = Pairing.G1Point(
+            0x1c50fbc9ecf77b2545e198dabb75abf78a6f86204dc76e29f861bf4f9125afdb,
+            0x139fd1a2aa02b5dd2aa80686cabbfc5b886a0c553507df90722b1a02d37a2c77
+        );
+        vk.IC[7] = Pairing.G1Point(
+            0xdda1fbb6d7c25ee97d0e4d41012e6df7e5df28aa60511fc4ef3685e274aefdd,
+            0x214bf32e5c6c4a4795086d0adec07975f2519cb5fa101040f994a4820ee2b490
         );
     }
 }
@@ -255,8 +261,20 @@ contract ReasoningAnchorVerifier is AccessControl, ReentrancyGuard, Pausable {
     /// @dev Per-agent nonce to sequence state commitments.
     mapping(address => uint256) public agentNonce;
 
-    /// @dev Pending state commitments: agent => nonce => H_t
-    mapping(address => mapping(uint256 => bytes32)) public pendingCommitments;
+    /// @dev A pending state commitment together with the block it was made in,
+    ///      so that commitmentDelay can be enforced on-chain.
+    struct Commitment {
+        bytes32 stateHash;
+        uint256 blockNumber;
+    }
+
+    /// @dev Pending state commitments: agent => nonce => (H_t, block number)
+    mapping(address => mapping(uint256 => Commitment)) public pendingCommitments;
+
+    /// @dev BN254 scalar field order r. Every public input must be below it,
+    ///      otherwise x and x + r would be accepted as the same input.
+    uint256 internal constant SNARK_SCALAR_FIELD =
+        21888242871839275222246405745257275088548364400416034343698204186575808495617;
 
     // ------------------------------------------------------------------
     // Events
@@ -314,7 +332,8 @@ contract ReasoningAnchorVerifier is AccessControl, ReentrancyGuard, Pausable {
     {
         require(stateHash != bytes32(0), "RAV: zero state hash");
         uint256 nonce = agentNonce[msg.sender]++;
-        pendingCommitments[msg.sender][nonce] = stateHash;
+        require(uint256(stateHash) < SNARK_SCALAR_FIELD, "RAV: hash not in field");
+        pendingCommitments[msg.sender][nonce] = Commitment(stateHash, block.number);
         emit StateCommitted(msg.sender, nonce, stateHash, block.number);
     }
 
@@ -334,13 +353,16 @@ contract ReasoningAnchorVerifier is AccessControl, ReentrancyGuard, Pausable {
      * @param proof       Groth16 proof (A, B, C) over BN254.
      * @param tx_         Committed transaction payload.
      * @param commitNonce Nonce identifying the prior commitState() call.
-     * @param nullifier   Unique per-proof identifier = keccak256(proof.A.x, proof.A.y, agent, nonce).
+     *
+     * The replay nullifier is keccak256(agent, commitNonce). It does not depend
+     * on the proof points, so re-randomising a valid Groth16 proof (A, B, C)
+     * cannot produce a fresh nullifier. Each commitment authorises exactly one
+     * settlement.
      */
     function verifyAndExecute(
         Proof calldata proof,
         TxPayload calldata tx_,
-        uint256 commitNonce,
-        bytes32 nullifier
+        uint256 commitNonce
     )
         external
         nonReentrant
@@ -349,34 +371,37 @@ contract ReasoningAnchorVerifier is AccessControl, ReentrancyGuard, Pausable {
     {
         // ---- Pre-condition checks ----------------------------------------
         require(block.timestamp <= tx_.deadline, "RAV: payload expired");
+        bytes32 nullifier = keccak256(abi.encodePacked(msg.sender, commitNonce));
         require(!_nullifiers[nullifier], "RAV: proof replayed");
         require(tx_.amount > 0 && tx_.amount <= maxTransferCap, "RAV: amount out of bounds");
         require(tx_.maxSlippageBps <= 10_000, "RAV: slippage exceeds 100%");
         require(whitelistedRouterHashes[tx_.routerHash], "RAV: router not whitelisted");
 
         // ---- Retrieve committed state hash --------------------------------
-        bytes32 H_t = pendingCommitments[msg.sender][commitNonce];
+        Commitment memory c = pendingCommitments[msg.sender][commitNonce];
+        bytes32 H_t = c.stateHash;
         require(H_t != bytes32(0), "RAV: no pending commitment for nonce");
 
-        // ---- Enforce temporal ordering ------------------------------------
-        // The commitment must have been made at least `commitmentDelay` blocks ago.
-        // This is recorded implicitly: since commitState emits a block number,
-        // off-chain indexers can enforce this. For full on-chain enforcement,
-        // store block.number in pendingCommitments (extended struct omitted for brevity).
-
-        // ---- Verify nullifier integrity -----------------------------------
-        bytes32 expectedNullifier = keccak256(
-            abi.encodePacked(proof.A.x, proof.A.y, msg.sender, commitNonce)
+        // ---- Enforce temporal ordering (on-chain) -------------------------
+        // The commitment must be at least `commitmentDelay` blocks old, so a
+        // proof cannot be submitted in the same block as its commitment.
+        require(
+            block.number >= c.blockNumber + commitmentDelay,
+            "RAV: commitment too recent"
         );
-        require(nullifier == expectedNullifier, "RAV: invalid nullifier");
 
         // ---- Build public input vector (must match circuit ordering) ------
-        uint256[5] memory pubInputs;
+        uint256[7] memory pubInputs;
         pubInputs[0] = uint256(H_t);
         pubInputs[1] = uint256(uint160(tx_.recipient));
         pubInputs[2] = tx_.amount;
         pubInputs[3] = tx_.maxSlippageBps;
         pubInputs[4] = uint256(tx_.routerHash);
+        pubInputs[5] = uint256(uint160(tx_.token));
+        pubInputs[6] = tx_.deadline;
+        for (uint256 i = 0; i < pubInputs.length; i++) {
+            require(pubInputs[i] < SNARK_SCALAR_FIELD, "RAV: input not in field");
+        }
 
         // ---- Run Groth16 pairing verification ------------------------------
         require(_verifyGroth16(proof, pubInputs), "RAV: proof invalid");
@@ -397,7 +422,7 @@ contract ReasoningAnchorVerifier is AccessControl, ReentrancyGuard, Pausable {
 
     function _verifyGroth16(
         Proof calldata proof,
-        uint256[5] memory inputs
+        uint256[7] memory inputs
     ) internal view returns (bool) {
         VerificationKey.VK memory vk = VerificationKey.load();
         require(inputs.length + 1 == vk.IC.length, "RAV: wrong input count");
@@ -513,6 +538,6 @@ contract ReasoningAnchorVerifier is AccessControl, ReentrancyGuard, Pausable {
     function getPendingCommitment(address agent, uint256 nonce)
         external view returns (bytes32)
     {
-        return pendingCommitments[agent][nonce];
+        return pendingCommitments[agent][nonce].stateHash;
     }
 }

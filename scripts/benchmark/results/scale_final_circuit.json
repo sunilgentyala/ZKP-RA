@@ -1,0 +1,43 @@
+{
+  "date": "2026-11-10",
+  "cpu": "AMD Ryzen AI 7 350 w/ Radeon 860M               x 16",
+  "node": "v24.16.0",
+  "results": [
+    {
+      "k": 1,
+      "chunks": 20,
+      "constraints": 8238,
+      "trials": 100,
+      "median_ms": 436.2,
+      "min_ms": 361,
+      "max_ms": 709,
+      "p95_ms": 539.5,
+      "p99_ms": 575.3,
+      "verifies": true
+    },
+    {
+      "k": 2,
+      "chunks": 40,
+      "constraints": 14288,
+      "trials": 100,
+      "median_ms": 569.2,
+      "min_ms": 453.2,
+      "max_ms": 748.8,
+      "p95_ms": 691.6,
+      "p99_ms": 728.7,
+      "verifies": true
+    },
+    {
+      "k": 4,
+      "chunks": 80,
+      "constraints": 26388,
+      "trials": 100,
+      "median_ms": 918.8,
+      "min_ms": 776.6,
+      "max_ms": 1503.7,
+      "p95_ms": 1219,
+      "p99_ms": 1421.7,
+      "verifies": true
+    }
+  ]
+}
